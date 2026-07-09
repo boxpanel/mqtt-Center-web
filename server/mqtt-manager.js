@@ -320,7 +320,7 @@ class MqttManager {
         await new Promise((resolve) => setTimeout(resolve, STARTUP_STAGGER_MS));
       }
     }
-    this.startStaggeredHealthCheck();
+    this.startHealthCheck();
   }
 
   startHealthCheck() {
@@ -334,29 +334,6 @@ class MqttManager {
         }
       });
     }, HEALTH_CHECK_INTERVAL);
-  }
-
-  /** 交错健康检查：每次只检查一部分，分散 CPU 压力 */
-  startStaggeredHealthCheck() {
-    if (this.healthTimer) return;
-    const bridges = () => [...this.bridges.values()];
-    let index = 0;
-    const BATCH = 5; // 每次检查 5 个
-    const INTERVAL = 2000; // 每 2 秒检查一批
-
-    this.healthTimer = setInterval(() => {
-      const all = bridges();
-      if (all.length === 0) return;
-      for (let i = 0; i < BATCH; i++) {
-        const bridge = all[(index + i) % all.length];
-        if (bridge) {
-          try { bridge.checkHealth(); } catch (err) {
-            logger.error({ err, client: bridge.getId() }, '健康检查异常');
-          }
-        }
-      }
-      index = (index + BATCH) % all.length;
-    }, INTERVAL);
   }
 
   stopHealthCheck() {
