@@ -50,7 +50,7 @@ function ClientStatCard({ total, connected, disabled }) {
         </div>
         <div className="stat-row">
           <span className="stat-label stat-disabled">已禁用</span>
-          <span className="stat-value" style={{ color: 'var(--text-muted)' }}>{disabled}</span>
+          <span className="stat-value" style={{ color: 'var(--danger)' }}>{disabled}</span>
         </div>
       </div>
     </div>
