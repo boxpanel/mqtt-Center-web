@@ -156,11 +156,11 @@ build_project() {
   section "安装依赖 & 构建"
 
   info "安装服务端依赖..."
-  npm install --production 2>&1 | tail -1
+  npm install 2>&1 | tail -1
 
   info "安装前端依赖..."
   cd client
-  npm install --production 2>&1 | tail -1
+  npm install 2>&1 | tail -1
   cd ..
 
   info "构建前端..."
