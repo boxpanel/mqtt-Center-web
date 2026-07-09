@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { fetchSystemMetrics } from './api';
 
 function formatBytes(bytes) {
   if (!bytes || bytes <= 0) return '0 B';
@@ -36,7 +35,33 @@ function MetricCard({ label, percent, detail, icon }) {
   );
 }
 
-export function SystemDashboard() {
+function StatsCard({ clients }) {
+  const total = clients.length;
+  const connected = clients.filter((c) => c.runtime?.status === 'connected').length;
+  const disabled = clients.filter((c) => !c.enabled).length;
+
+  return (
+    <div className="metric-card stats-card">
+      <div className="stats-rows">
+        <div className="stats-row">
+          <span className="stats-label">已连接</span>
+          <span className="stats-value stats-connected">{connected}</span>
+        </div>
+        <div className="stats-row">
+          <span className="stats-label">已禁用</span>
+          <span className="stats-value stats-disabled">{disabled}</span>
+        </div>
+        <div className="stats-divider" />
+        <div className="stats-row">
+          <span className="stats-label">总计</span>
+          <span className="stats-value stats-total">{total}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function SystemDashboard({ clients }) {
   const [metrics, setMetrics] = useState(null);
   const [error, setError] = useState(false);
 
@@ -100,6 +125,7 @@ export function SystemDashboard() {
           detail={`${formatBytes(metrics.disk.used)} / ${formatBytes(metrics.disk.total)}`}
           icon="💾"
         />
+        <StatsCard clients={clients} />
       </div>
     </div>
   );

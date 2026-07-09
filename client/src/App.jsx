@@ -188,7 +188,7 @@ export default function App() {
               <p className="subtitle">独立 MQTT 客户端管理与主题转发</p>
             </div>
           </div>
-          <SystemDashboard />
+          <SystemDashboard clients={clients} />
         </div>
       </header>
 
