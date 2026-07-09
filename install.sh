@@ -114,6 +114,27 @@ detect_arch() {
   fi
 }
 
+# ── 交互式配置 ──
+interactive_config() {
+  section "配置服务端口"
+
+  # 默认端口
+  DEFAULT_PORT=80
+  PORT=""
+
+  # 检查是否非交互模式（通过管道安装时没有终端）
+  if [ -t 0 ]; then
+    read -r -p "$(echo -e "${CYAN}  请输入服务端口号 [默认: $DEFAULT_PORT]: ${NC}")" PORT
+  fi
+
+  # 如果未输入或非法，使用默认值
+  if [ -z "$PORT" ] || ! echo "$PORT" | grep -qxE '[0-9]+' || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+    PORT=$DEFAULT_PORT
+  fi
+
+  info "服务端口: $PORT"
+}
+
 # ── 克隆 / 更新代码 ──
 clone_repo() {
   section "获取代码"
@@ -171,7 +192,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=$TARGET_DIR
-ExecStart=/usr/bin/env WORKERS=$RECOMMENDED_WORKERS PORT=8088 node server/index.js
+ExecStart=/usr/bin/env WORKERS=$RECOMMENDED_WORKERS PORT=$PORT node server/index.js
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
@@ -202,7 +223,7 @@ show_result() {
   echo ""
   echo -e "  ${GREEN}MQTT Center Web 已成功安装并运行！${NC}"
   echo ""
-  echo -e "  ${CYAN}访问地址:${NC}  http://$local_ip:8088"
+  echo -e "  ${CYAN}访问地址:${NC}  http://$local_ip:$PORT"
   echo ""
   echo -e "  ${CYAN}管理命令:${NC}"
   echo -e "    查看状态:  systemctl status mqtt-center-web"
@@ -212,7 +233,7 @@ show_result() {
   echo ""
   echo -e "  ${CYAN}安装目录:${NC}  $TARGET_DIR"
   echo ""
-  echo -e "  ${YELLOW}提示: 如果无法访问，请检查防火墙是否放行了 8088 端口${NC}"
+  echo -e "  ${YELLOW}提示: 如果无法访问，请检查防火墙是否放行了 $PORT 端口${NC}"
   echo ""
 }
 
@@ -236,6 +257,7 @@ detect_pkg_manager
 install_system_deps
 install_nodejs
 detect_arch
+interactive_config
 clone_repo
 build_project
 setup_service
