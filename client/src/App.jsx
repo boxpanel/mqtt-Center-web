@@ -249,6 +249,7 @@ export default function App() {
                     <th>名称</th>
                     <th>IP</th>
                     <th>端口</th>
+                    <th>Client ID</th>
                     <th>状态</th>
                     <th>订阅主题</th>
                     <th>转发主题</th>

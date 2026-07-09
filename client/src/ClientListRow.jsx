@@ -19,6 +19,9 @@ export function ClientListRow({ client, index, selected, onSelect, onEdit, onDel
       <td className="col-name">{client.name}</td>
       <td className="col-ip">{client.broker.host}</td>
       <td className="col-port">{client.broker.port}</td>
+      <td className="col-clientid">
+        <code>{client.broker.clientId || <span className="cell-muted">自动生成</span>}</code>
+      </td>
       <td className="col-status">
         <span
           className="status-badge"
