@@ -12,7 +12,6 @@ import {
 } from './api';
 import { ClientListRow } from './ClientListRow';
 import { ClientForm } from './ClientForm';
-import { SystemDashboard } from './SystemDashboard';
 import './App.css';
 
 export default function App() {
@@ -188,7 +187,6 @@ export default function App() {
               <p className="subtitle">独立 MQTT 客户端管理与主题转发</p>
             </div>
           </div>
-          <SystemDashboard />
         </div>
       </header>
 
