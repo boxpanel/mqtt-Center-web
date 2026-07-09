@@ -66,7 +66,6 @@ export function SystemDashboard() {
   if (error && !metrics) {
     return (
       <div className="system-dashboard">
-        <div className="dashboard-title">本机资源</div>
         <div className="dashboard-error">无法获取系统资源信息</div>
       </div>
     );
@@ -75,7 +74,6 @@ export function SystemDashboard() {
   if (!metrics) {
     return (
       <div className="system-dashboard">
-        <div className="dashboard-title">本机资源</div>
         <div className="dashboard-loading">加载中...</div>
       </div>
     );
@@ -83,10 +81,6 @@ export function SystemDashboard() {
 
   return (
     <div className="system-dashboard">
-      <div className="dashboard-title">
-        本机资源
-        <span className="dashboard-host">{metrics.hostname}</span>
-      </div>
       <div className="metric-grid">
         <MetricCard
           label="CPU"
