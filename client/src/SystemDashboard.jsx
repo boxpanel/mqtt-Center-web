@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fetchSystemMetrics } from './api';
 
 function formatBytes(bytes) {
   if (!bytes || bytes <= 0) return '0 B';
@@ -35,26 +36,21 @@ function MetricCard({ label, percent, detail, icon }) {
   );
 }
 
-function StatsCard({ clients }) {
-  const total = clients.length;
-  const connected = clients.filter((c) => c.runtime?.status === 'connected').length;
-  const disabled = clients.filter((c) => !c.enabled).length;
-
+function ClientStatCard({ total, connected, disabled }) {
   return (
-    <div className="metric-card stats-card">
-      <div className="stats-rows">
-        <div className="stats-row">
-          <span className="stats-label">已连接</span>
-          <span className="stats-value stats-connected">{connected}</span>
+    <div className="metric-card client-stat-card">
+      <div className="stat-rows">
+        <div className="stat-row">
+          <span className="stat-label">总数量</span>
+          <span className="stat-value">{total}</span>
         </div>
-        <div className="stats-row">
-          <span className="stats-label">已禁用</span>
-          <span className="stats-value stats-disabled">{disabled}</span>
+        <div className="stat-row">
+          <span className="stat-label stat-connected">已连接</span>
+          <span className="stat-value" style={{ color: 'var(--success)' }}>{connected}</span>
         </div>
-        <div className="stats-divider" />
-        <div className="stats-row">
-          <span className="stats-label">总计</span>
-          <span className="stats-value stats-total">{total}</span>
+        <div className="stat-row">
+          <span className="stat-label stat-disabled">已禁用</span>
+          <span className="stat-value" style={{ color: 'var(--text-muted)' }}>{disabled}</span>
         </div>
       </div>
     </div>
@@ -64,6 +60,10 @@ function StatsCard({ clients }) {
 export function SystemDashboard({ clients }) {
   const [metrics, setMetrics] = useState(null);
   const [error, setError] = useState(false);
+
+  const total = clients?.length || 0;
+  const connected = clients?.filter((c) => c.runtime?.status === 'connected').length || 0;
+  const disabled = clients?.filter((c) => !c.enabled).length || 0;
 
   useEffect(() => {
     let active = true;
@@ -125,7 +125,11 @@ export function SystemDashboard({ clients }) {
           detail={`${formatBytes(metrics.disk.used)} / ${formatBytes(metrics.disk.total)}`}
           icon="💾"
         />
-        <StatsCard clients={clients} />
+        <ClientStatCard
+          total={total}
+          connected={connected}
+          disabled={disabled}
+        />
       </div>
     </div>
   );

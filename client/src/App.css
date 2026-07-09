@@ -135,47 +135,35 @@
   font-family: var(--mono);
 }
 
-/* ── 统计卡片 ── */
-
-.stats-card {
+.client-stat-card {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.stats-rows {
+.stat-rows {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
 }
 
-.stats-row {
+.stat-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 4px;
 }
 
-.stats-label {
+.stat-label {
   font-size: 12px;
   color: var(--text-muted);
 }
 
-.stats-value {
-  font-size: 16px;
+.stat-value {
+  font-size: 18px;
   font-weight: 700;
   font-family: var(--mono);
-}
-
-.stats-connected { color: var(--success); }
-.stats-disabled { color: var(--text-muted); }
-.stats-total { color: var(--primary); }
-
-.stats-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 2px 0;
 }
 
 .header h1 {
@@ -375,6 +363,6 @@
   }
 
   .metric-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
