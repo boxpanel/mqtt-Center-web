@@ -144,25 +144,31 @@ export function ClientForm({ client, onSave, onCancel }) {
             <input className="form-input" value={form.broker.clientId} onChange={(e) => update('broker.clientId', e.target.value)} style={{ fontFamily: 'var(--mono)' }} />
           </div>
 
-          <div className="form-group" style={{ marginTop: 16 }}>
-            <label>订阅主题 → 转发主题</label>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10, lineHeight: 1.4 }}>
-              支持 MQTT 通配符：<code>+</code> 匹配单层，<code>#</code> 匹配多层。转发主题可用 <code>$topic</code> 引用原始主题。
-            </p>
-            {form.rules.map((rule, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'end', marginBottom: 10 }}>
-                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                  <input className="form-input" value={rule.subscribeTopic} onChange={(e) => updateRule(i, 'subscribeTopic', e.target.value)} placeholder="订阅主题 如 sensor/+/data" style={{ fontFamily: 'var(--mono)' }} required />
-                </div>
-                <div style={{ padding: '0 4px 10px', color: 'var(--text-muted)' }}>→</div>
-                <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                  <input className="form-input" value={rule.forwardTopic} onChange={(e) => updateRule(i, 'forwardTopic', e.target.value)} placeholder="转发主题 如 forward/$topic" style={{ fontFamily: 'var(--mono)' }} required />
-                </div>
-                <button type="button" className="btn-danger btn-sm" onClick={() => removeRule(i)} style={{ marginBottom: 2 }} disabled={form.rules.length <= 1}>删除</button>
+          <h3 style={{ fontSize: 14, color: 'var(--text-muted)', margin: '20px 0 12px' }}>主题转发规则</h3>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+            支持 MQTT 通配符：+ 匹配单层，# 匹配多层。转发主题可用 $topic 引用原始主题。
+          </p>
+
+          {form.rules.map((rule, i) => (
+            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'end', marginBottom: 12 }}>
+              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <label>订阅主题</label>
+                <input className="form-input" value={rule.subscribeTopic} onChange={(e) => updateRule(i, 'subscribeTopic', e.target.value)} placeholder="sensor/+/data" style={{ fontFamily: 'var(--mono)' }} required />
               </div>
-            ))}
-            <button type="button" className="btn-secondary btn-sm" onClick={addRule}>+ 添加规则</button>
-          </div>
+              <div style={{ padding: '0 4px 10px', color: 'var(--text-muted)' }}>→</div>
+              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <label>转发主题</label>
+                <input className="form-input" value={rule.forwardTopic} onChange={(e) => updateRule(i, 'forwardTopic', e.target.value)} placeholder="forward/$topic" style={{ fontFamily: 'var(--mono)' }} required />
+              </div>
+              <button type="button" className="btn-danger btn-sm" onClick={() => removeRule(i)} style={{ marginBottom: 2 }} disabled={form.rules.length <= 1}>
+                删除
+              </button>
+            </div>
+          ))}
+
+          <button type="button" className="btn-secondary btn-sm" onClick={addRule}>
+            + 添加订阅
+          </button>
 
           <div className="modal-actions">
             <button type="button" className="btn-secondary" onClick={onCancel}>取消</button>
