@@ -20,6 +20,7 @@ export function startHeartbeat(hubUrl, mqttManager, loadClients, getSystemMetric
 
       let connected = 0;
       let disabled = 0;
+      let errors = 0;
       for (const c of clients) {
         if (!c.enabled) {
           disabled++;
@@ -27,6 +28,7 @@ export function startHeartbeat(hubUrl, mqttManager, loadClients, getSystemMetric
           const s = statusMap.get(c.id);
           if (s && s.status === 'connected') connected++;
         }
+        if ((c.runtime?.stats?.errors || 0) > 0) errors++;
       }
 
       // 获取系统指标
@@ -40,6 +42,7 @@ export function startHeartbeat(hubUrl, mqttManager, loadClients, getSystemMetric
           total: clients.length,
           connected,
           disabled,
+          errors,
         },
         system,
         clients,
