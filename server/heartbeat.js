@@ -1,0 +1,69 @@
+/**
+ * 心跳上报模块
+ * 向 Hub 定期发送本机状态信息
+ */
+import logger from './logger.js';
+
+const HEARTBEAT_INTERVAL = 60000; // 60 秒
+
+export function startHeartbeat(hubUrl, mqttManager, loadClients, getSystemMetrics) {
+  if (!hubUrl) {
+    logger.warn('未配置 Hub 地址，不启动心跳上报');
+    return null;
+  }
+
+  async function sendHeartbeat() {
+    try {
+      const clients = loadClients();
+      const statuses = mqttManager.getAllStatus();
+      const statusMap = new Map(statuses.map((s) => [s.id, s]));
+
+      let connected = 0;
+      let disabled = 0;
+      for (const c of clients) {
+        if (!c.enabled) {
+          disabled++;
+        } else {
+          const s = statusMap.get(c.id);
+          if (s && s.status === 'connected') connected++;
+        }
+      }
+
+      // 获取系统指标
+      let system = null;
+      try { system = await getSystemMetrics(); } catch {}
+
+      const body = {
+        host: global.__localIp,
+        port: global.__servicePort,
+        stats: {
+          total: clients.length,
+          connected,
+          disabled,
+        },
+        system,
+        clients,
+      };
+
+      const res = await fetch(`${hubUrl}/api/heartbeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        logger.warn({ status: res.status }, '心跳上报失败');
+      }
+    } catch (err) {
+      logger.warn({ err: err.message }, '心跳上报异常');
+    }
+  }
+
+  // 立即发送一次，然后定时发送
+  sendHeartbeat();
+  const timer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
+
+  logger.info({ hubUrl, interval: HEARTBEAT_INTERVAL }, '心跳上报已启动');
+
+  return timer;
+}

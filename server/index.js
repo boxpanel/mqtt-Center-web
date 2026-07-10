@@ -39,8 +39,8 @@ async function startPrimary() {
     ipc.broadcast('mqtt:event', event);
   });
 
-  // 启动 UDP 发现服务（响应 Hub 的广播发现）
-  startDiscovery(mqttManager, loadClients, PORT);
+  // 启动 UDP 发现服务 + 心跳上报
+  startDiscovery(mqttManager, loadClients, PORT, getSystemMetrics);
 
   // 启动工作进程
   for (let i = 0; i < WORKERS; i++) {
