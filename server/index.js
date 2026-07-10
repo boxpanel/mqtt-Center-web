@@ -2,6 +2,7 @@ import cluster from 'cluster';
 import os from 'os';
 import logger from './logger.js';
 import { setupIpcServer } from './ipc.js';
+import { startDiscovery } from './discovery.js';
 
 // ───────────────────────
 // 环境变量控制
@@ -37,6 +38,9 @@ async function startPrimary() {
   mqttManager.onEvent((event) => {
     ipc.broadcast('mqtt:event', event);
   });
+
+  // 启动 UDP 发现服务（响应 Hub 的广播发现）
+  startDiscovery(mqttManager, loadClients, PORT);
 
   // 启动工作进程
   for (let i = 0; i < WORKERS; i++) {
