@@ -24,11 +24,12 @@ export function startHeartbeat(hubUrl, mqttManager, loadClients, getSystemMetric
       for (const c of clients) {
         if (!c.enabled) {
           disabled++;
+          errors++;
         } else {
           const s = statusMap.get(c.id);
           if (s && s.status === 'connected') connected++;
+          if ((c.runtime?.stats?.errors || 0) > 0) errors++;
         }
-        if ((c.runtime?.stats?.errors || 0) > 0) errors++;
       }
 
       // 获取系统指标
