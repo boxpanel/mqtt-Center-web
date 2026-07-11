@@ -310,7 +310,7 @@ export default function App() {
             </div>
             <div className="topics-grid">
               {clients.length === 0 ? (
-                <div className="empty-state-mini">暂无订阅主题</div>
+                <div className="empty-state-mini"></div>
               ) : (
                 (() => {
                   const topicMap = {};

@@ -403,7 +403,7 @@
 
 .empty-state-mini {
   text-align: center;
-  padding: 24px;
+  padding: 4px;
   color: var(--text-muted);
   font-size: 13px;
 }
