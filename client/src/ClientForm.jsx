@@ -1,12 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 
-const emptyRule = () => ({ subscribeTopic: '' });
-
 const emptyForm = () => ({
   name: '',
   enabled: true,
   broker: { host: '127.0.0.1', port: 1883, username: '', password: '', clientId: '' },
-  rules: [{ subscribeTopic: '' }],
 });
 
 export function ClientForm({ client, onSave, onCancel }) {
@@ -18,7 +15,6 @@ export function ClientForm({ client, onSave, onCancel }) {
         name: client.name,
         enabled: client.enabled,
         broker: { ...client.broker, password: '' },
-        rules: client.rules.length ? [...client.rules] : [emptyRule()],
       };
     }
     return emptyForm();
@@ -42,26 +38,9 @@ export function ClientForm({ client, onSave, onCancel }) {
     });
   };
 
-  const updateRule = (index, field, value) => {
-    setForm((prev) => {
-      const rules = [...prev.rules];
-      rules[index] = { ...rules[index], [field]: value };
-      return { ...prev, rules };
-    });
-  };
-
   const handlePortChange = (value) => {
     const digits = value.replace(/\D/g, '');
     update('broker.port', digits === '' ? '' : Number(digits));
-  };
-
-  const addRule = () => setForm((prev) => ({ ...prev, rules: [...prev.rules, { subscribeTopic: '' }] }));
-
-  const removeRule = (index) => {
-    setForm((prev) => ({
-      ...prev,
-      rules: prev.rules.length > 1 ? prev.rules.filter((_, i) => i !== index) : prev.rules,
-    }));
   };
 
   const handleSubmit = (e) => {
@@ -72,7 +51,6 @@ export function ClientForm({ client, onSave, onCancel }) {
         ...form.broker,
         port: Number(form.broker.port) || 1883,
       },
-      rules: form.rules.map((r) => ({ subscribeTopic: r.subscribeTopic, forwardTopic: '' })),
     };
     if (client && !payload.broker.password) {
       payload.broker.password = '******';
@@ -144,24 +122,6 @@ export function ClientForm({ client, onSave, onCancel }) {
             <label>Client ID（可选，留空自动生成）</label>
             <input className="form-input" value={form.broker.clientId} onChange={(e) => update('broker.clientId', e.target.value)} style={{ fontFamily: 'var(--mono)' }} />
           </div>
-
-          <h3 style={{ fontSize: 14, color: 'var(--text-muted)', margin: '20px 0 12px' }}>订阅主题</h3>
-
-          {form.rules.map((rule, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'end', marginBottom: 12 }}>
-              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                <label>主题 {i + 1}</label>
-                <input className="form-input" value={rule.subscribeTopic} onChange={(e) => updateRule(i, 'subscribeTopic', e.target.value)} placeholder="sensor/+/data" style={{ fontFamily: 'var(--mono)' }} required />
-              </div>
-              <button type="button" className="btn-danger btn-sm" onClick={() => removeRule(i)} style={{ marginBottom: 2 }} disabled={form.rules.length <= 1}>
-                删除
-              </button>
-            </div>
-          ))}
-
-          <button type="button" className="btn-secondary btn-sm" onClick={addRule}>
-            + 添加订阅
-          </button>
 
           <div className="modal-actions">
             <button type="button" className="btn-secondary" onClick={onCancel}>取消</button>

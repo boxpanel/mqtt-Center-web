@@ -12,6 +12,7 @@ import {
 } from './api';
 import { ClientListRow } from './ClientListRow';
 import { ClientForm } from './ClientForm';
+import { TopicForm } from './TopicForm';
 import { SystemDashboard } from './SystemDashboard';
 import './App.css';
 
@@ -20,6 +21,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
+  const [topicFormOpen, setTopicFormOpen] = useState(false);
+  const [editingTopic, setEditingTopic] = useState(null);
+  const [editingTopicClient, setEditingTopicClient] = useState(null);
   const [toast, setToast] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const headerCheckRef = useRef(null);
@@ -76,6 +80,24 @@ export default function App() {
       }
       setFormOpen(false);
       setEditingClient(null);
+      load();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  };
+
+  const handleTopicSave = async (clientId, rule) => {
+    try {
+      const client = clients.find((c) => c.id === clientId);
+      if (!client) return;
+      const updatedRules = editingTopic
+        ? client.rules.map((r) => (r === editingTopic ? rule : r))
+        : [...client.rules, rule];
+      await updateClient(clientId, { ...client, rules: updatedRules });
+      showToast('订阅主题已保存');
+      setTopicFormOpen(false);
+      setEditingTopic(null);
+      setEditingTopicClient(null);
       load();
     } catch (err) {
       showToast(err.message, true);
@@ -283,24 +305,31 @@ export default function App() {
           </section>
 
           <section className="section-container">
-            <h2 className="section-title">订阅主题</h2>
+            <div className="section-header">
+              <h2 className="section-title">订阅主题</h2>
+              <button type="button" className="btn-primary btn-sm" onClick={() => { setEditingTopic(null); setEditingTopicClient(null); setTopicFormOpen(true); }}>+ 新建</button>
+            </div>
             <div className="topics-grid">
               {clients.length === 0 ? (
                 <div className="empty-state-mini">暂无订阅主题</div>
               ) : (
                 (() => {
                   const topicMap = {};
+                  const topicData = [];
                   for (const c of clients) {
                     for (const r of c.rules) {
                       if (!r.subscribeTopic) continue;
-                      if (!topicMap[r.subscribeTopic]) topicMap[r.subscribeTopic] = [];
+                      if (!topicMap[r.subscribeTopic]) {
+                        topicMap[r.subscribeTopic] = [];
+                        topicData.push({ topic: r.subscribeTopic, client: c, rule: r });
+                      }
                       topicMap[r.subscribeTopic].push(c.name);
                     }
                   }
-                  return Object.entries(topicMap).map(([topic, names]) => (
-                    <div key={topic} className="topic-card">
+                  return topicData.map(({ topic, client, rule }) => (
+                    <div key={`${client.id}-${topic}`} className="topic-card" onClick={() => { setEditingTopic(rule); setEditingTopicClient(client); setTopicFormOpen(true); }} style={{ cursor: 'pointer' }}>
                       <code className="topic-name">{topic}</code>
-                      <span className="topic-clients">{names.join('、')}</span>
+                      <span className="topic-clients">{topicMap[topic].join('、')}</span>
                     </div>
                   ));
                 })()
@@ -315,6 +344,16 @@ export default function App() {
           client={editingClient}
           onSave={handleSave}
           onCancel={() => { setFormOpen(false); setEditingClient(null); }}
+        />
+      )}
+
+      {topicFormOpen && (
+        <TopicForm
+          clients={clients}
+          editingRule={editingTopic}
+          editingClient={editingTopicClient}
+          onSave={handleTopicSave}
+          onCancel={() => { setTopicFormOpen(false); setEditingTopic(null); setEditingTopicClient(null); }}
         />
       )}
 
