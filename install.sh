@@ -135,7 +135,164 @@ interactive_config() {
   info "服务端口: $PORT"
 }
 
-# ── 克隆 / 更新代码 ──
+# ── 高可用配置（交互） ──
+interactive_ha() {
+  section "高可用配置"
+
+  HA_ENABLED=""
+  if [ -t 0 ]; then
+    read -r -p "$(echo -e "${CYAN}  是否配置主备高可用？(y/N): ${NC}")" HA_ENABLED
+  fi
+
+  if [ "$HA_ENABLED" != "y" ] && [ "$HA_ENABLED" != "Y" ]; then
+    info "跳过高可用配置"
+    HA_ENABLED="no"
+    return
+  fi
+
+  HA_ENABLED="yes"
+
+  # 角色
+  echo -e "${CYAN}  角色选择:${NC}"
+  echo "    1) 主服务器 (master)"
+  echo "    2) 备用服务器 (standby)"
+  read -r -p "$(echo -e "${CYAN}  请选择 [1]: ${NC}")" HA_ROLE_SEL
+  if [ "$HA_ROLE_SEL" = "2" ]; then
+    HA_ROLE="standby"
+  else
+    HA_ROLE="master"
+  fi
+
+  # 本机 IP
+  read -r -p "$(echo -e "${CYAN}  请输入本机 IP 地址: ${NC}")" HA_LOCAL_IP
+
+  # 对方 IP
+  read -r -p "$(echo -e "${CYAN}  请输入对方（$([ "$HA_ROLE" = "master" ] && echo "备用" || echo "主")）服务器 IP 地址: ${NC}")" HA_REMOTE_IP
+
+  # 虚拟 IP
+  read -r -p "$(echo -e "${CYAN}  请输入虚拟 IP 地址: ${NC}")" HA_VIRTUAL_IP
+
+  info "高可用: $HA_ROLE | 本机: $HA_LOCAL_IP | 对方: $HA_REMOTE_IP | 虚拟IP: $HA_VIRTUAL_IP"
+}
+
+# ── 高可用安装 ──
+setup_ha() {
+  if [ "$HA_ENABLED" != "yes" ]; then
+    return
+  fi
+
+  section "安装高可用组件"
+
+  # 安装 keepalived
+  info "安装 keepalived..."
+  case $PKG_MANAGER in
+    apt) apt-get install -y -qq keepalived ;;
+    yum|dnf) $PKG_MANAGER install -y -q keepalived ;;
+    apk) apk add keepalived ;;
+    pacman) pacman -S --noconfirm keepalived ;;
+  esac
+
+  # 健康检查脚本
+  mkdir -p /etc/keepalived
+  cat > /etc/keepalived/chk_mqtt.sh <<'CHKEOF'
+#!/bin/bash
+curl -sf http://127.0.0.1:$(grep -oP 'PORT=\K\d+' /etc/systemd/system/mqtt-center-web.service 2>/dev/null || echo 80)/api/health > /dev/null 2>&1
+exit $?
+CHKEOF
+  chmod +x /etc/keepalived/chk_mqtt.sh
+
+  # keepalived 配置
+  local PRIORITY=$([ "$HA_ROLE" = "master" ] && echo 150 || echo 100)
+  local STATE=$([ "$HA_ROLE" = "master" ] && echo "MASTER" || echo "BACKUP")
+  local IFACE=$(ip route get "$HA_REMOTE_IP" | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -1)
+
+  cat > /etc/keepalived/keepalived.conf <<KEEPCONF
+vrrp_instance VI_1 {
+    state $STATE
+    interface $IFACE
+    virtual_router_id 55
+    priority $PRIORITY
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass mqtt-ha-secret
+    }
+    virtual_ipaddress {
+        $HA_VIRTUAL_IP/24
+    }
+    track_script {
+        chk_mqtt
+    }
+}
+KEEPCONF
+
+  systemctl enable keepalived
+  systemctl restart keepalived
+  info "keepalived 已配置并启动"
+
+  # 配置同步（仅主服务器需要）
+  if [ "$HA_ROLE" = "master" ]; then
+    if [ ! -f ~/.ssh/id_rsa ]; then
+      ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N "" -q
+      info "SSH 密钥已生成"
+    fi
+
+    cat > /etc/systemd/system/mqtt-sync.service <<'SYSEOF'
+[Unit]
+Description=MQTT Center 配置同步
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/sh /opt/mqtt-center-web/ha-sync.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+SYSEOF
+
+    cat > /opt/mqtt-center-web/ha-sync.sh <<SYNEOF
+#!/bin/sh
+REMOTE_IP=$HA_REMOTE_IP
+while true; do
+  rsync -avz --delete /opt/mqtt-center-web/data/clients.json root@\$REMOTE_IP:/opt/mqtt-center-web/data/ > /dev/null 2>&1
+  sleep 30
+done
+SYNEOF
+    chmod +x /opt/mqtt-center-web/ha-sync.sh
+
+    systemctl daemon-reload
+    systemctl enable mqtt-sync
+    systemctl start mqtt-sync
+
+    echo ""
+    info "┌─────────────────────────────────────────────┐"
+    info "│ 请在备用服务器上添加 SSH 公钥:               │"
+    info "│                                             │"
+    cat ~/.ssh/id_rsa.pub | sed 's/^/│  /'
+    info "│                                             │"
+    info "│ 备用服务器执行:                              │"
+    info "│  echo '公钥' >> ~/.ssh/authorized_keys       │"
+    info "└─────────────────────────────────────────────┘"
+    echo ""
+  fi
+}
+
+# ── 高可用结果显示 ──
+show_ha_result() {
+  if [ "$HA_ENABLED" != "yes" ]; then
+    return
+  fi
+  echo ""
+  echo -e "  ${CYAN}高可用配置:${NC}"
+  echo -e "    角色:      $HA_ROLE"
+  echo -e "    本机 IP:   $HA_LOCAL_IP"
+  echo -e "    对方 IP:   $HA_REMOTE_IP"
+  echo -e "    虚拟 IP:   $HA_VIRTUAL_IP"
+  echo -e "    访问地址:  http://$HA_VIRTUAL_IP"
+  echo ""
+}
 clone_repo() {
   section "获取代码"
   TARGET_DIR="/opt/mqtt-center-web"
@@ -258,7 +415,10 @@ install_system_deps
 install_nodejs
 detect_arch
 interactive_config
+interactive_ha
 clone_repo
 build_project
 setup_service
+setup_ha
+show_ha_result
 show_result
