@@ -139,9 +139,11 @@ interactive_read() {
   local var_name="$2"
   local val=""
   if [ -c /dev/tty ]; then
-    read -r -p "$prompt" val </dev/tty
-  elif [ -t 0 ]; then
-    read -r -p "$prompt" val
+    printf "%s" "$prompt"
+    read -r val </dev/tty
+  else
+    printf "%s" "$prompt"
+    read -r val
   fi
   eval "$var_name=\"\$val\""
 }
@@ -174,25 +176,25 @@ interactive_ha() {
   fi
 
   # 本机 IP
-  while true; do
+  HA_LOCAL_IP=""
+  while [ -z "$HA_LOCAL_IP" ]; do
     interactive_read "$(echo -e "${CYAN}  请输入本机 IP 地址: ${NC}")" HA_LOCAL_IP
-    [ -n "$HA_LOCAL_IP" ] && break
-    warn "IP 地址不能为空"
+    [ -z "$HA_LOCAL_IP" ] && warn "IP 地址不能为空，请重新输入"
   done
 
   # 对方 IP
   local peer_label="$([ "$HA_ROLE" = "master" ] && echo "备用" || echo "主")"
-  while true; do
+  HA_REMOTE_IP=""
+  while [ -z "$HA_REMOTE_IP" ]; do
     interactive_read "$(echo -e "${CYAN}  请输入对方（${peer_label}）服务器 IP 地址: ${NC}")" HA_REMOTE_IP
-    [ -n "$HA_REMOTE_IP" ] && break
-    warn "IP 地址不能为空"
+    [ -z "$HA_REMOTE_IP" ] && warn "IP 地址不能为空，请重新输入"
   done
 
   # 虚拟 IP
-  while true; do
+  HA_VIRTUAL_IP=""
+  while [ -z "$HA_VIRTUAL_IP" ]; do
     interactive_read "$(echo -e "${CYAN}  请输入虚拟 IP 地址: ${NC}")" HA_VIRTUAL_IP
-    [ -n "$HA_VIRTUAL_IP" ] && break
-    warn "IP 地址不能为空"
+    [ -z "$HA_VIRTUAL_IP" ] && warn "IP 地址不能为空，请重新输入"
   done
 
   info "角色: $HA_ROLE | 本机: $HA_LOCAL_IP | 对方: $HA_REMOTE_IP | 虚拟IP: $HA_VIRTUAL_IP"
