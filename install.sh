@@ -174,14 +174,26 @@ interactive_ha() {
   fi
 
   # 本机 IP
-  interactive_read "$(echo -e "${CYAN}  请输入本机 IP 地址: ${NC}")" HA_LOCAL_IP
+  while true; do
+    interactive_read "$(echo -e "${CYAN}  请输入本机 IP 地址: ${NC}")" HA_LOCAL_IP
+    [ -n "$HA_LOCAL_IP" ] && break
+    warn "IP 地址不能为空"
+  done
 
   # 对方 IP
   local peer_label="$([ "$HA_ROLE" = "master" ] && echo "备用" || echo "主")"
-  interactive_read "$(echo -e "${CYAN}  请输入对方（${peer_label}）服务器 IP 地址: ${NC}")" HA_REMOTE_IP
+  while true; do
+    interactive_read "$(echo -e "${CYAN}  请输入对方（${peer_label}）服务器 IP 地址: ${NC}")" HA_REMOTE_IP
+    [ -n "$HA_REMOTE_IP" ] && break
+    warn "IP 地址不能为空"
+  done
 
   # 虚拟 IP
-  interactive_read "$(echo -e "${CYAN}  请输入虚拟 IP 地址: ${NC}")" HA_VIRTUAL_IP
+  while true; do
+    interactive_read "$(echo -e "${CYAN}  请输入虚拟 IP 地址: ${NC}")" HA_VIRTUAL_IP
+    [ -n "$HA_VIRTUAL_IP" ] && break
+    warn "IP 地址不能为空"
+  done
 
   info "角色: $HA_ROLE | 本机: $HA_LOCAL_IP | 对方: $HA_REMOTE_IP | 虚拟IP: $HA_VIRTUAL_IP"
 }
