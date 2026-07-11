@@ -24,6 +24,10 @@ export default function App() {
   const [topicFormOpen, setTopicFormOpen] = useState(false);
   const [editingTopic, setEditingTopic] = useState(null);
   const [editingTopicClient, setEditingTopicClient] = useState(null);
+  const [editingTopicItems, setEditingTopicItems] = useState(null);
+  const [editingTopicGroupName, setEditingTopicGroupName] = useState('');
+  const [editingTopicConditions, setEditingTopicConditions] = useState(null);
+  const [selectedTopicIds, setSelectedTopicIds] = useState(new Set());
   const [toast, setToast] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const headerCheckRef = useRef(null);
@@ -86,18 +90,114 @@ export default function App() {
     }
   };
 
-  const handleTopicSave = async (clientId, rule) => {
+  const handleTopicSave = async (rules, oldGroupName, conditions) => {
     try {
-      const client = clients.find((c) => c.id === clientId);
-      if (!client) return;
-      const updatedRules = editingTopic
-        ? client.rules.map((r) => (r === editingTopic ? rule : r))
-        : [...client.rules, rule];
-      await updateClient(clientId, { ...client, rules: updatedRules });
-      showToast('订阅主题已保存');
+      // 如果是在编辑，先删除旧组的规则
+      if (oldGroupName) {
+        for (const c of clients) {
+          const remaining = c.rules.filter((r) => r.groupName !== oldGroupName || !r.groupName);
+          if (remaining.length !== c.rules.length) {
+            await updateClient(c.id, { ...c, rules: remaining });
+          }
+        }
+      }
+      // 按客户端分组保存新规则
+      const grouped = {};
+      for (const rule of rules) {
+        if (!grouped[rule.subscribeClientId]) grouped[rule.subscribeClientId] = [];
+        grouped[rule.subscribeClientId].push({ ...rule, conditions: conditions || null });
+      }
+      for (const [clientId, clientRules] of Object.entries(grouped)) {
+        const client = clients.find((c) => c.id === clientId);
+        if (!client) continue;
+        // 编辑模式下需保留不在旧组中的其他规则
+        const existing = client.rules.filter((r) => r.groupName !== oldGroupName || !r.groupName);
+        await updateClient(clientId, {
+          ...client,
+          rules: [...existing, ...clientRules],
+        });
+      }
+      showToast(`已保存 ${rules.length} 条订阅主题`);
       setTopicFormOpen(false);
       setEditingTopic(null);
       setEditingTopicClient(null);
+      setEditingTopicItems(null);
+      setEditingTopicGroupName('');
+      load();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  };
+
+  const handleTopicSelect = (topicKey, checked) => {
+    setSelectedTopicIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(topicKey);
+      else next.delete(topicKey);
+      return next;
+    });
+  };
+
+  const handleTopicSelectAll = () => {
+    const allKeys = [];
+    const groups = {};
+    for (const c of clients) {
+      for (const r of c.rules) {
+        if (!r.subscribeTopic) continue;
+        const gk = r.groupName || `${c.id}-${r.subscribeTopic}`;
+        if (!groups[gk]) {
+          groups[gk] = true;
+          allKeys.push(gk);
+        }
+      }
+    }
+    setSelectedTopicIds((prev) => prev.size === allKeys.length ? new Set() : new Set(allKeys));
+  };
+
+  const handleTopicBatchDelete = async () => {
+    if (selectedTopicIds.size === 0) return;
+    try {
+      // 收集要删除的规则（按客户端分组）
+      const toDelete = {};
+      for (const gk of selectedTopicIds) {
+        for (const c of clients) {
+          for (const r of c.rules) {
+            if (!r.subscribeTopic) continue;
+            const ruleGk = r.groupName || `${c.id}-${r.subscribeTopic}`;
+            if (ruleGk === gk) {
+              if (!toDelete[c.id]) toDelete[c.id] = new Set();
+              toDelete[c.id].add(r.subscribeTopic);
+            }
+          }
+        }
+      }
+      for (const [clientId, topics] of Object.entries(toDelete)) {
+        const client = clients.find((c) => c.id === clientId);
+        if (!client) continue;
+        const remaining = client.rules.filter((r) => !topics.has(r.subscribeTopic));
+        await updateClient(clientId, { ...client, rules: remaining });
+      }
+      showToast(`已删除 ${selectedTopicIds.size} 组订阅`);
+      setSelectedTopicIds(new Set());
+      load();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  };
+
+  const handleTopicGroupDelete = async (groupKey) => {
+    try {
+      for (const c of clients) {
+        const remaining = c.rules.filter((r) => {
+          const gk = r.groupName || `${c.id}-${r.subscribeTopic}`;
+          return gk !== groupKey;
+        });
+        if (remaining.length !== c.rules.length) {
+          await updateClient(c.id, { ...c, rules: remaining });
+        }
+      }
+      showToast('已删除该组订阅');
+      setSelectedTopicIds(new Set());
       load();
     } catch (err) {
       showToast(err.message, true);
@@ -299,34 +399,130 @@ export default function App() {
           <section className="section-container">
             <div className="section-header">
               <h2 className="section-title">订阅主题</h2>
-              <button type="button" className="btn-primary btn-sm" onClick={() => { setEditingTopic(null); setEditingTopicClient(null); setTopicFormOpen(true); }}>+ 新建</button>
-            </div>
-            <div className="topics-grid">
-              {clients.length === 0 ? (
-                <div className="empty-state-mini"></div>
-              ) : (
-                (() => {
-                  const topicMap = {};
-                  const topicData = [];
+              <div className="section-header-actions">
+                <button type="button" className="btn-primary btn-sm" onClick={() => { setEditingTopic(null); setEditingTopicClient(null); setTopicFormOpen(true); }}>+ 新建</button>
+                {(() => {
+                  const groupKeys = [];
+                  const groups = {};
                   for (const c of clients) {
                     for (const r of c.rules) {
                       if (!r.subscribeTopic) continue;
-                      if (!topicMap[r.subscribeTopic]) {
-                        topicMap[r.subscribeTopic] = [];
-                        topicData.push({ topic: r.subscribeTopic, client: c, rule: r });
+                      const gk = r.groupName || `${c.id}-${r.subscribeTopic}`;
+                      if (!groups[gk]) {
+                        groups[gk] = true;
+                        groupKeys.push(gk);
                       }
-                      topicMap[r.subscribeTopic].push(c.name);
                     }
                   }
-                  return topicData.map(({ topic, client, rule }) => (
-                    <div key={`${client.id}-${topic}`} className="topic-card" onClick={() => { setEditingTopic(rule); setEditingTopicClient(client); setTopicFormOpen(true); }} style={{ cursor: 'pointer' }}>
-                      <code className="topic-name">{topic}</code>
-                      <span className="topic-clients">{topicMap[topic].join('、')}</span>
-                    </div>
-                  ));
-                })()
-              )}
+                  const allSelected = groupKeys.length > 0 && selectedTopicIds.size === groupKeys.length;
+                  const someSelected = selectedTopicIds.size > 0;
+                  return groupKeys.length > 0 ? (
+                    <>
+                      <button type="button" className="btn-secondary btn-sm" onClick={handleTopicSelectAll}>
+                        {allSelected ? '取消全选' : '全选'}
+                      </button>
+                      <button type="button" className="btn-danger btn-sm" onClick={handleTopicBatchDelete} disabled={!someSelected}>
+                        删除{someSelected ? ` (${selectedTopicIds.size})` : ''}
+                      </button>
+                    </>
+                  ) : null;
+                })()}
+              </div>
             </div>
+            {clients.length === 0 ? (
+              <div className="empty-state-mini"></div>
+            ) : (
+              (() => {
+                const groups = {};
+                for (const c of clients) {
+                  for (const r of c.rules) {
+                    if (!r.subscribeTopic) continue;
+                    const gk = r.groupName || `${c.id}-${r.subscribeTopic}`;
+                    if (!groups[gk]) groups[gk] = { name: r.groupName || '', items: [] };
+                    groups[gk].items.push({ rule: r, client: c });
+                  }
+                }
+                const entries = Object.entries(groups);
+                if (entries.length === 0) return <div className="empty-state-mini"></div>;
+                return (
+                   <div className="client-table-wrap">
+                     <table className="client-table">
+                       <thead>
+                         <tr>
+                            <th className="col-check"></th>
+                            <th>主题名称</th>
+                            <th>订阅主题</th>
+                            <th>订阅客户端</th>
+                            <th>转发主题</th>
+                            <th>转发客户端</th>
+                            <th>规则</th>
+                            <th>操作</th>
+                          </tr>
+                       </thead>
+                       <tbody>
+                          {entries.map(([gk, { name, items }]) => {
+                            const isGrouped = !!name;
+                            const groupKey = isGrouped ? gk : items[0]?.rule?.subscribeTopic || gk;
+                            const checked = selectedTopicIds.has(groupKey);
+                            return (
+                              <tr key={gk} className={selectedTopicIds.has(groupKey) ? 'row-selected' : ''}>
+                                <td className="col-check" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    className="row-checkbox"
+                                    checked={checked}
+                                    onChange={(e) => handleTopicSelect(groupKey, e.target.checked)}
+                                  />
+                                </td>
+                                <td>{isGrouped ? name : '-'}</td>
+                                <td className="col-topic">
+                                  {items.map(({ rule, client }, idx) => (
+                                    <div key={idx} className="cell-line">{rule.subscribeTopic}</div>
+                                  ))}
+                                </td>
+                                <td>
+                                  {items.map(({ rule, client }, idx) => {
+                                    const subName = rule.subscribeClientId ? (clients.find(cc => cc.id === rule.subscribeClientId)?.name || client.name) : client.name;
+                                    return <div key={idx} className="cell-line">{subName}</div>;
+                                  })}
+                                </td>
+                                <td className="col-topic">
+                                  {items.map(({ rule, client }, idx) => (
+                                    <div key={idx} className="cell-line">{rule.forwardTopic}</div>
+                                  ))}
+                                </td>
+                                <td>
+                                  {items.map(({ rule, client }, idx) => {
+                                    const fwdName = rule.forwardClientId ? (clients.find(cc => cc.id === rule.forwardClientId)?.name || client.name) : client.name;
+                                    return <div key={idx} className="cell-line">{fwdName}</div>;
+                                  })}
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  {(() => {
+                                    const hasRules = items.some(({ rule }) => rule.conditions && rule.conditions.items && rule.conditions.items.length > 0 && rule.conditions.items[0]?.type !== 'always');
+                                    return hasRules
+                                      ? <span style={{ color: '#22c55e', fontWeight: 600 }}>有</span>
+                                      : <span style={{ color: 'var(--text-muted)' }}>无</span>;
+                                  })()}
+                                </td>
+                                <td className="col-actions">
+                                   <button className="btn-secondary btn-sm" onClick={() => {
+                                     setEditingTopicItems(items.map(({ rule }) => rule));
+                                     setEditingTopicGroupName(name);
+                                     setEditingTopicConditions(items[0]?.rule?.conditions || null);
+                                     setTopicFormOpen(true);
+                                   }}>编辑</button>
+                                   <button className="btn-danger btn-sm" onClick={() => handleTopicGroupDelete(groupKey)} style={{ marginLeft: 4 }}>删除</button>
+                                 </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                     </table>
+                   </div>
+                );
+              })()
+            )}
           </section>
         </div>
       </main>
@@ -342,10 +538,11 @@ export default function App() {
       {topicFormOpen && (
         <TopicForm
           clients={clients}
-          editingRule={editingTopic}
-          editingClient={editingTopicClient}
+          editingItems={editingTopicItems}
+          editingGroupName={editingTopicGroupName}
+          editingConditions={editingTopicConditions}
           onSave={handleTopicSave}
-          onCancel={() => { setTopicFormOpen(false); setEditingTopic(null); setEditingTopicClient(null); }}
+          onCancel={() => { setTopicFormOpen(false); setEditingTopic(null); setEditingTopicClient(null); setEditingTopicItems(null); setEditingTopicGroupName(''); setEditingTopicConditions(null); }}
         />
       )}
 

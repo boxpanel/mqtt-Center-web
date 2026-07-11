@@ -230,6 +230,7 @@
   font-weight: 600;
   color: var(--text-muted);
   background: #1e2a3a;
+  text-align: center;
 }
 
 .client-table tbody tr:nth-child(even) {
@@ -338,6 +339,7 @@
 .col-actions {
   white-space: nowrap !important;
   min-width: 180px;
+  text-align: center !important;
 }
 
 .col-actions .btn-sm {
@@ -442,4 +444,51 @@
 .topic-clients {
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.topic-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.topic-card-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 10px 14px;
+}
+
+.topic-card-header {
+  display: flex;
+  align-items: center;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.topic-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.topic-card-row + .topic-card-row {
+  border-top: 1px dashed rgba(255,255,255,0.06);
+}
+
+.topic-client {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.topic-arrow {
+  color: var(--text-muted);
+  font-size: 13px;
 }

@@ -42,6 +42,10 @@ function normalizeClient(body, existing = null) {
     rules: (body.rules || existing?.rules || []).map((r) => ({
       subscribeTopic: r.subscribeTopic?.trim() || '',
       forwardTopic: r.forwardTopic?.trim() || '',
+      subscribeClientId: r.subscribeClientId || '',
+      forwardClientId: r.forwardClientId || '',
+      groupName: r.groupName || '',
+      conditions: r.conditions || null,
     })),
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
