@@ -18,14 +18,11 @@ function validateClient(body, isUpdate = false) {
     errors.push('端口无效');
   }
 
-  if (!Array.isArray(body.rules) || body.rules.length === 0) {
-    errors.push('至少配置一条转发规则');
-  } else {
-    body.rules.forEach((rule, i) => {
-      if (!rule.subscribeTopic?.trim()) errors.push(`规则 ${i + 1}: 订阅主题不能为空`);
-      if (!rule.forwardTopic?.trim()) errors.push(`规则 ${i + 1}: 转发主题不能为空`);
-    });
-  }
+  if (!Array.isArray(body.rules)) body.rules = [];
+  body.rules.forEach((rule, i) => {
+    if (!rule.subscribeTopic?.trim()) errors.push(`规则 ${i + 1}: 订阅主题不能为空`);
+    if (!rule.forwardTopic?.trim()) errors.push(`规则 ${i + 1}: 转发主题不能为空`);
+  });
 
   return errors;
 }
