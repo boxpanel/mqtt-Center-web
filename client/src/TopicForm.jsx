@@ -43,7 +43,7 @@ export function TopicForm({ clients, editingRule, editingClient, onSave, onCance
             </select>
           </div>
 
-          <div className="form-row">
+          <div style={{ display: 'flex', gap: 8, alignItems: 'end' }}>
             <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
               <label>订阅主题</label>
               <input
@@ -55,7 +55,7 @@ export function TopicForm({ clients, editingRule, editingClient, onSave, onCance
                 required
               />
             </div>
-            <div style={{ padding: '22px 4px 0', color: 'var(--text-muted)' }}>→</div>
+            <div style={{ padding: '0 2px 10px', color: 'var(--text-muted)', fontSize: 16 }}>→</div>
             <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
               <label>转发主题</label>
               <input
