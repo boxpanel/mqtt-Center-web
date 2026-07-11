@@ -377,26 +377,27 @@
   margin-bottom: 20px;
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
   margin-bottom: 14px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
 }
 
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin: 0;
+.section-wrapper {
+  position: relative;
 }
 
 .section-actions {
+  position: absolute;
+  right: 0;
+  top: -4px;
   display: flex;
   align-items: center;
   gap: 6px;
+  z-index: 1;
 }
 
 .empty-state-mini {
