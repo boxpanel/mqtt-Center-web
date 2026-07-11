@@ -274,11 +274,6 @@ export default function App() {
                       <th>端口</th>
                       <th>Client ID</th>
                       <th>状态</th>
-                      <th>订阅主题</th>
-                      <th>转发主题</th>
-                      <th>接收</th>
-                      <th>转发</th>
-                      <th>错误</th>
                       <th>操作</th>
                     </tr>
                   </thead>
