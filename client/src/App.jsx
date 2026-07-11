@@ -254,7 +254,7 @@ export default function App() {
             {loading ? (
               <div className="empty-state">加载中...</div>
             ) : clients.length === 0 ? (
-              <div className="empty-state">暂无客户端</div>
+              <div className="empty-state"></div>
             ) : (
               <div className="client-table-wrap">
                 <table className="client-table">
