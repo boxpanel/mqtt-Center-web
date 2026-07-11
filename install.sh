@@ -175,10 +175,17 @@ interactive_ha() {
     HA_ROLE="master"
   fi
 
+  # 自动检测本机 IP
+  local detected_ip=$(ip route get 8.8.8.8 2>/dev/null | awk '{print $NF; exit}' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || echo "")
+
   # 主服务器 IP
   HA_MASTER_IP=""
   while [ -z "$HA_MASTER_IP" ]; do
-    interactive_read "$(echo -e "${CYAN}  请输入主服务器 IP 地址: ${NC}")" HA_MASTER_IP
+    local hint=""
+    [ -n "$detected_ip" ] && hint=" [$detected_ip]"
+    interactive_read "$(echo -e "${CYAN}  请输入主服务器 IP 地址${hint}: ${NC}")" HA_MASTER_IP
+    # 如果检测到 IP 且用户直接回车，使用检测到的 IP
+    [ -z "$HA_MASTER_IP" ] && [ -n "$detected_ip" ] && HA_MASTER_IP="$detected_ip"
     [ -z "$HA_MASTER_IP" ] && warn "IP 地址不能为空，请重新输入"
   done
 
