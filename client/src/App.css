@@ -386,18 +386,12 @@
   border-bottom: 1px solid var(--border);
 }
 
-.section-wrapper {
-  position: relative;
-}
-
-.section-actions {
-  position: absolute;
-  right: 0;
-  top: -4px;
+.toolbar-row {
   display: flex;
-  align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  z-index: 1;
+  margin-top: 12px;
+  padding: 0 2px;
 }
 
 .empty-state-mini {

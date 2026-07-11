@@ -189,25 +189,24 @@ export default function App() {
             </div>
           </div>
           <SystemDashboard clients={clients} />
+          <div className="toolbar-row">
+            <button type="button" className="btn-secondary btn-sm" onClick={handleExport}>导出</button>
+            <button type="button" className="btn-secondary btn-sm" onClick={handleImportClick}>导入</button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              style={{ display: 'none' }}
+              onChange={handleImportFile}
+            />
+          </div>
         </div>
       </header>
 
       <main className="main">
         <div className="page-container">
-          <div className="section-wrapper">
-            <div className="section-actions">
-              <button type="button" className="btn-secondary btn-sm" onClick={handleExport}>导出</button>
-              <button type="button" className="btn-secondary btn-sm" onClick={handleImportClick}>导入</button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                style={{ display: 'none' }}
-                onChange={handleImportFile}
-              />
-            </div>
-            <section className="section-container">
-              <h2 className="section-title">MQTT 客户端列表</h2>
+          <section className="section-container">
+            <h2 className="section-title">MQTT 客户端列表</h2>
               <div className="content-toolbar">
               <div className="toolbar-left">
                 <button type="button" className="btn-primary" onClick={openCreate}>+ 新建</button>
@@ -281,7 +280,7 @@ export default function App() {
                 </table>
               </div>
             )}
-          </section></div>
+          </section>
 
           <section className="section-container">
             <h2 className="section-title">订阅主题</h2>
