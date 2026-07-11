@@ -268,7 +268,7 @@ SYSEOF
 REMOTE_IP=$HA_REMOTE_IP
 while true; do
   rsync -avz --delete /opt/mqtt-center-web/data/clients.json root@\$REMOTE_IP:/opt/mqtt-center-web/data/ > /dev/null 2>&1
-  sleep 30
+  sleep 20
 done
 SYNEOF
     chmod +x /opt/mqtt-center-web/ha-sync.sh
