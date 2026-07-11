@@ -43,28 +43,30 @@ export function TopicForm({ clients, editingRule, editingClient, onSave, onCance
             </select>
           </div>
 
-          <div className="form-group">
-            <label>订阅主题</label>
-            <input
-              className="form-input"
-              value={rule.subscribeTopic}
-              onChange={(e) => setRule({ ...rule, subscribeTopic: e.target.value })}
-              placeholder="sensor/+/data"
-              style={{ fontFamily: 'var(--mono)' }}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>转发主题</label>
-            <input
-              className="form-input"
-              value={rule.forwardTopic}
-              onChange={(e) => setRule({ ...rule, forwardTopic: e.target.value })}
-              placeholder="forward/$topic"
-              style={{ fontFamily: 'var(--mono)' }}
-              required
-            />
+          <div className="form-row">
+            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <label>订阅主题</label>
+              <input
+                className="form-input"
+                value={rule.subscribeTopic}
+                onChange={(e) => setRule({ ...rule, subscribeTopic: e.target.value })}
+                placeholder="sensor/+/data"
+                style={{ fontFamily: 'var(--mono)' }}
+                required
+              />
+            </div>
+            <div style={{ padding: '22px 4px 0', color: 'var(--text-muted)' }}>→</div>
+            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <label>转发主题</label>
+              <input
+                className="form-input"
+                value={rule.forwardTopic}
+                onChange={(e) => setRule({ ...rule, forwardTopic: e.target.value })}
+                placeholder="forward/$topic"
+                style={{ fontFamily: 'var(--mono)' }}
+                required
+              />
+            </div>
           </div>
 
           <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '12px 0 0' }}>
