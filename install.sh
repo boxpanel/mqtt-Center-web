@@ -123,9 +123,7 @@ interactive_config() {
   PORT=""
 
   # 检查是否非交互模式（通过管道安装时没有终端）
-  if [ -t 0 ]; then
-    read -r -p "$(echo -e "${CYAN}  请输入服务端口号 [默认: $DEFAULT_PORT]: ${NC}")" PORT
-  fi
+  interactive_read "$(echo -e "${CYAN}  请输入服务端口号 [默认: $DEFAULT_PORT]: ${NC}")" PORT
 
   # 如果未输入或非法，使用默认值
   if [ -z "$PORT" ] || ! echo "$PORT" | grep -qxE '[0-9]+' || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
@@ -135,14 +133,25 @@ interactive_config() {
   info "服务端口: $PORT"
 }
 
+# ── 交互式读取（兼容 curl 管道模式） ──
+interactive_read() {
+  local prompt="$1"
+  local var_name="$2"
+  local val=""
+  if [ -c /dev/tty ]; then
+    read -r -p "$prompt" val </dev/tty
+  elif [ -t 0 ]; then
+    read -r -p "$prompt" val
+  fi
+  eval "$var_name=\"\$val\""
+}
+
 # ── 高可用配置（交互） ──
 interactive_ha() {
   section "双服务器配置"
 
   HA_ENABLED=""
-  if [ -t 0 ]; then
-    read -r -p "$(echo -e "${CYAN}  是否配置主备用服务器？(y/N): ${NC}")" HA_ENABLED
-  fi
+  interactive_read "$(echo -e "${CYAN}  是否配置主备用服务器？(y/N): ${NC}")" HA_ENABLED
 
   if [ "$HA_ENABLED" != "y" ] && [ "$HA_ENABLED" != "Y" ]; then
     info "跳过主备用服务器配置"
@@ -156,7 +165,8 @@ interactive_ha() {
   echo -e "${CYAN}  角色选择:${NC}"
   echo "    1) 主服务器 (master)"
   echo "    2) 备用服务器 (standby)"
-  read -r -p "$(echo -e "${CYAN}  请选择 [1]: ${NC}")" HA_ROLE_SEL
+  local HA_ROLE_SEL=""
+  interactive_read "$(echo -e "${CYAN}  请选择 [1]: ${NC}")" HA_ROLE_SEL
   if [ "$HA_ROLE_SEL" = "2" ]; then
     HA_ROLE="standby"
   else
@@ -164,15 +174,16 @@ interactive_ha() {
   fi
 
   # 本机 IP
-  read -r -p "$(echo -e "${CYAN}  请输入本机 IP 地址: ${NC}")" HA_LOCAL_IP
+  interactive_read "$(echo -e "${CYAN}  请输入本机 IP 地址: ${NC}")" HA_LOCAL_IP
 
   # 对方 IP
-  read -r -p "$(echo -e "${CYAN}  请输入对方（$([ "$HA_ROLE" = "master" ] && echo "备用" || echo "主")）服务器 IP 地址: ${NC}")" HA_REMOTE_IP
+  local peer_label="$([ "$HA_ROLE" = "master" ] && echo "备用" || echo "主")"
+  interactive_read "$(echo -e "${CYAN}  请输入对方（${peer_label}）服务器 IP 地址: ${NC}")" HA_REMOTE_IP
 
   # 虚拟 IP
-  read -r -p "$(echo -e "${CYAN}  请输入虚拟 IP 地址: ${NC}")" HA_VIRTUAL_IP
+  interactive_read "$(echo -e "${CYAN}  请输入虚拟 IP 地址: ${NC}")" HA_VIRTUAL_IP
 
-  info "高可用: $HA_ROLE | 本机: $HA_LOCAL_IP | 对方: $HA_REMOTE_IP | 虚拟IP: $HA_VIRTUAL_IP"
+  info "角色: $HA_ROLE | 本机: $HA_LOCAL_IP | 对方: $HA_REMOTE_IP | 虚拟IP: $HA_VIRTUAL_IP"
 }
 
 # ── 高可用安装 ──
