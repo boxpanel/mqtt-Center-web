@@ -28,7 +28,7 @@ export function TopicForm({ clients, editingRule, editingClient, onSave, onCance
       <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
         <h2>{editingRule ? '编辑订阅主题' : '新建订阅主题'}</h2>
         <form onSubmit={handleSubmit}>
-          <div className="form-group" style={{ maxWidth: '50%' }}>
+          <div className="form-group" style={{ width: '50%' }}>
             <label>所属客户端</label>
             <select
               className="form-input"
