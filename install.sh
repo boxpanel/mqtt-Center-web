@@ -137,7 +137,7 @@ interactive_config() {
 
 # ── 高可用配置（交互） ──
 interactive_ha() {
-  section "高可用配置"
+  section "双服务器配置"
 
   HA_ENABLED=""
   if [ -t 0 ]; then
@@ -181,7 +181,7 @@ setup_ha() {
     return
   fi
 
-  section "安装高可用组件"
+  section "安装双服务器组件"
 
   # 安装 keepalived
   info "安装 keepalived..."
@@ -285,7 +285,7 @@ show_ha_result() {
     return
   fi
   echo ""
-  echo -e "  ${CYAN}高可用配置:${NC}"
+  echo -e "  ${CYAN}双服务器配置:${NC}"
   echo -e "    角色:      $HA_ROLE"
   echo -e "    本机 IP:   $HA_LOCAL_IP"
   echo -e "    对方 IP:   $HA_REMOTE_IP"
