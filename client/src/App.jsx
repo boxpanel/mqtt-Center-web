@@ -230,26 +230,24 @@ export default function App() {
           <section className="section-container">
             <div className="section-header">
               <h2 className="section-title">MQTT 客户端列表</h2>
-              <button type="button" className="btn-primary btn-sm" onClick={openCreate}>+ 新建</button>
-            </div>
-            <div className="content-toolbar">
-              <div className="toolbar-left">
+              <div className="section-header-actions">
+                <button type="button" className="btn-primary btn-sm" onClick={openCreate}>+ 新建</button>
+                {clients.length > 0 && (
+                  <>
+                    <button type="button" className="btn-secondary btn-sm" onClick={handleSelectAll}>
+                      {allSelected ? '取消全选' : '全选'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-danger btn-sm"
+                      onClick={handleBatchDelete}
+                      disabled={!someSelected}
+                    >
+                      删除{someSelected ? ` (${selectedIds.size})` : ''}
+                    </button>
+                  </>
+                )}
               </div>
-              {clients.length > 0 && (
-                <div className="toolbar-actions">
-                  <button type="button" className="btn-secondary" onClick={handleSelectAll}>
-                    {allSelected ? '取消全选' : '全选'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-danger"
-                    onClick={handleBatchDelete}
-                    disabled={!someSelected}
-                  >
-                    删除{someSelected ? ` (${selectedIds.size})` : ''}
-                  </button>
-                </div>
-              )}
             </div>
             {loading ? (
               <div className="empty-state">加载中...</div>

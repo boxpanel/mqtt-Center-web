@@ -393,6 +393,12 @@
   border-bottom: 1px solid var(--border);
 }
 
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .toolbar-row {
   display: flex;
   justify-content: flex-end;
