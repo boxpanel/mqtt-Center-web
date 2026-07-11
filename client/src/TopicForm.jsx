@@ -33,7 +33,7 @@ export function TopicForm({ clients, editingItems, editingGroupName, editingCond
   const [conditionLogic, setConditionLogic] = useState('and'); // 'and' | 'or'
 
   const addRule = () => {
-    if (!form.subscribeTopic.trim() || !form.forwardTopic.trim() || !form.subscribeClientId || !form.forwardClientId) return;
+    if (!form.subscribeTopic.trim() || !form.forwardTopic.trim()) return;
     setRules([...rules, { ...form, groupName: groupName.trim() || '' }]);
     setForm(emptyRule());
   };
@@ -121,7 +121,7 @@ export function TopicForm({ clients, editingItems, editingGroupName, editingCond
                 value={form.subscribeClientId}
                 onChange={(e) => setForm({ ...form, subscribeClientId: e.target.value })}
               >
-                <option value="">请选择</option>
+                <option value="">无</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -134,7 +134,7 @@ export function TopicForm({ clients, editingItems, editingGroupName, editingCond
                 value={form.forwardClientId}
                 onChange={(e) => setForm({ ...form, forwardClientId: e.target.value })}
               >
-                <option value="">请选择</option>
+                <option value="">无</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}

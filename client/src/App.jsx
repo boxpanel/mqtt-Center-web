@@ -9,6 +9,10 @@ import {
   subscribeEvents,
   exportClients,
   importClients,
+  fetchRules,
+  saveRulesBatch,
+  deleteRulesGroup,
+  deleteRulesBatch,
 } from './api';
 import { ClientListRow } from './ClientListRow';
 import { ClientForm } from './ClientForm';
@@ -18,6 +22,7 @@ import './App.css';
 
 export default function App() {
   const [clients, setClients] = useState([]);
+  const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
@@ -40,8 +45,9 @@ export default function App() {
 
   const load = useCallback(async () => {
     try {
-      const data = await fetchClients();
+      const [data, ruleData] = await Promise.all([fetchClients(), fetchRules()]);
       setClients(data);
+      setRules(ruleData);
       setSelectedIds((prev) => {
         const next = new Set();
         const idSet = new Set(data.map((c) => c.id));
@@ -90,34 +96,13 @@ export default function App() {
     }
   };
 
-  const handleTopicSave = async (rules, oldGroupName, conditions) => {
+  const handleTopicSave = async (rulesData, oldGroupName, conditions) => {
     try {
-      // 如果是在编辑，先删除旧组的规则
-      if (oldGroupName) {
-        for (const c of clients) {
-          const remaining = c.rules.filter((r) => r.groupName !== oldGroupName || !r.groupName);
-          if (remaining.length !== c.rules.length) {
-            await updateClient(c.id, { ...c, rules: remaining });
-          }
-        }
-      }
-      // 按客户端分组保存新规则
-      const grouped = {};
-      for (const rule of rules) {
-        if (!grouped[rule.subscribeClientId]) grouped[rule.subscribeClientId] = [];
-        grouped[rule.subscribeClientId].push({ ...rule, conditions: conditions || null });
-      }
-      for (const [clientId, clientRules] of Object.entries(grouped)) {
-        const client = clients.find((c) => c.id === clientId);
-        if (!client) continue;
-        // 编辑模式下需保留不在旧组中的其他规则
-        const existing = client.rules.filter((r) => r.groupName !== oldGroupName || !r.groupName);
-        await updateClient(clientId, {
-          ...client,
-          rules: [...existing, ...clientRules],
-        });
-      }
-      showToast(`已保存 ${rules.length} 条订阅主题`);
+      // 附加条件到每条规则（conditions 是条件项数组，需包装为对象）
+      const condObj = conditions && conditions.length > 0 ? { logic: 'and', items: conditions } : null;
+      const prepared = rulesData.map((r) => ({ ...r, conditions: condObj }));
+      await saveRulesBatch(prepared, oldGroupName || undefined);
+      showToast(`已保存 ${prepared.length} 条订阅主题`);
       setTopicFormOpen(false);
       setEditingTopic(null);
       setEditingTopicClient(null);
@@ -141,14 +126,12 @@ export default function App() {
   const handleTopicSelectAll = () => {
     const allKeys = [];
     const groups = {};
-    for (const c of clients) {
-      for (const r of c.rules) {
-        if (!r.subscribeTopic) continue;
-        const gk = r.groupName || `${c.id}-${r.subscribeTopic}`;
-        if (!groups[gk]) {
-          groups[gk] = true;
-          allKeys.push(gk);
-        }
+    for (const r of rules) {
+      if (!r.subscribeTopic) continue;
+      const gk = r.groupName || `${r.subscribeClientId}-${r.subscribeTopic}`;
+      if (!groups[gk]) {
+        groups[gk] = true;
+        allKeys.push(gk);
       }
     }
     setSelectedTopicIds((prev) => prev.size === allKeys.length ? new Set() : new Set(allKeys));
@@ -157,26 +140,7 @@ export default function App() {
   const handleTopicBatchDelete = async () => {
     if (selectedTopicIds.size === 0) return;
     try {
-      // 收集要删除的规则（按客户端分组）
-      const toDelete = {};
-      for (const gk of selectedTopicIds) {
-        for (const c of clients) {
-          for (const r of c.rules) {
-            if (!r.subscribeTopic) continue;
-            const ruleGk = r.groupName || `${c.id}-${r.subscribeTopic}`;
-            if (ruleGk === gk) {
-              if (!toDelete[c.id]) toDelete[c.id] = new Set();
-              toDelete[c.id].add(r.subscribeTopic);
-            }
-          }
-        }
-      }
-      for (const [clientId, topics] of Object.entries(toDelete)) {
-        const client = clients.find((c) => c.id === clientId);
-        if (!client) continue;
-        const remaining = client.rules.filter((r) => !topics.has(r.subscribeTopic));
-        await updateClient(clientId, { ...client, rules: remaining });
-      }
+      await deleteRulesBatch([...selectedTopicIds]);
       showToast(`已删除 ${selectedTopicIds.size} 组订阅`);
       setSelectedTopicIds(new Set());
       load();
@@ -187,15 +151,7 @@ export default function App() {
 
   const handleTopicGroupDelete = async (groupKey) => {
     try {
-      for (const c of clients) {
-        const remaining = c.rules.filter((r) => {
-          const gk = r.groupName || `${c.id}-${r.subscribeTopic}`;
-          return gk !== groupKey;
-        });
-        if (remaining.length !== c.rules.length) {
-          await updateClient(c.id, { ...c, rules: remaining });
-        }
-      }
+      await deleteRulesGroup(groupKey);
       showToast('已删除该组订阅');
       setSelectedTopicIds(new Set());
       load();
@@ -205,7 +161,6 @@ export default function App() {
   };
 
   const handleDelete = async (client) => {
-    if (!confirm(`确定删除客户端「${client.name}」？`)) return;
     try {
       await deleteClient(client.id);
       showToast('客户端已删除');
@@ -408,14 +363,12 @@ export default function App() {
                 {(() => {
                   const groupKeys = [];
                   const groups = {};
-                  for (const c of clients) {
-                    for (const r of c.rules) {
-                      if (!r.subscribeTopic) continue;
-                      const gk = r.groupName || `${c.id}-${r.subscribeTopic}`;
-                      if (!groups[gk]) {
-                        groups[gk] = true;
-                        groupKeys.push(gk);
-                      }
+                  for (const r of rules) {
+                    if (!r.subscribeTopic) continue;
+                    const gk = r.groupName || `${r.subscribeClientId}-${r.subscribeTopic}`;
+                    if (!groups[gk]) {
+                      groups[gk] = true;
+                      groupKeys.push(gk);
                     }
                   }
                   const allSelected = groupKeys.length > 0 && selectedTopicIds.size === groupKeys.length;
@@ -433,18 +386,18 @@ export default function App() {
                 })()}
               </div>
             </div>
-            {clients.length === 0 ? (
+            {clients.length === 0 && rules.length === 0 ? (
               <div className="empty-state-mini"></div>
             ) : (
               (() => {
                 const groups = {};
-                for (const c of clients) {
-                  for (const r of c.rules) {
-                    if (!r.subscribeTopic) continue;
-                    const gk = r.groupName || `${c.id}-${r.subscribeTopic}`;
-                    if (!groups[gk]) groups[gk] = { name: r.groupName || '', items: [] };
-                    groups[gk].items.push({ rule: r, client: c });
-                  }
+                for (const r of rules) {
+                  if (!r.subscribeTopic) continue;
+                  const gk = r.groupName || `${r.subscribeClientId}-${r.subscribeTopic}`;
+                  if (!groups[gk]) groups[gk] = { name: r.groupName || '', items: [] };
+                  const client = clients.find((c) => c.id === r.subscribeClientId);
+                  const safeClient = client || { name: '无', runtime: { stats: { received: 0, forwarded: 0 } } };
+                  groups[gk].items.push({ rule: r, client: safeClient });
                 }
                 const entries = Object.entries(groups);
                 if (entries.length === 0) return <div className="empty-state-mini"></div>;
@@ -488,7 +441,7 @@ export default function App() {
                                 </td>
                                 <td>
                                   {items.map(({ rule, client }, idx) => {
-                                    const subName = rule.subscribeClientId ? (clients.find(cc => cc.id === rule.subscribeClientId)?.name || client.name) : client.name;
+                                    const subName = clients.find(cc => cc.id === rule.subscribeClientId)?.name || '无';
                                     return <div key={idx} className="cell-line">{subName}</div>;
                                   })}
                                 </td>
@@ -499,7 +452,7 @@ export default function App() {
                                 </td>
                                 <td>
                                   {items.map(({ rule, client }, idx) => {
-                                    const fwdName = rule.forwardClientId ? (clients.find(cc => cc.id === rule.forwardClientId)?.name || client.name) : client.name;
+                                    const fwdName = clients.find(cc => cc.id === rule.forwardClientId)?.name || '无';
                                     return <div key={idx} className="cell-line">{fwdName}</div>;
                                   })}
                                 </td>
@@ -529,7 +482,7 @@ export default function App() {
                                    <button className="btn-secondary btn-sm" onClick={() => {
                                      setEditingTopicItems(items.map(({ rule }) => rule));
                                      setEditingTopicGroupName(name);
-                                     setEditingTopicConditions(items[0]?.rule?.conditions || null);
+                                     setEditingTopicConditions(items[0]?.rule?.conditions?.items || null);
                                      setTopicFormOpen(true);
                                    }}>编辑</button>
                                    <button className="btn-danger btn-sm" onClick={() => handleTopicGroupDelete(groupKey)} style={{ marginLeft: 4 }}>删除</button>

@@ -82,3 +82,39 @@ export async function importClients(file) {
   if (!res.ok) throw new Error(json.error || '导入失败');
   return json;
 }
+
+// ── 规则管理 API ──
+
+export async function fetchRules() {
+  const res = await fetch(`${API}/rules`);
+  if (!res.ok) throw new Error('获取规则列表失败');
+  return res.json();
+}
+
+export async function saveRulesBatch(rules, oldGroupName) {
+  const res = await fetch(`${API}/rules/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rules, oldGroupName }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || '保存规则失败');
+  return json;
+}
+
+export async function deleteRulesGroup(groupKey) {
+  const res = await fetch(`${API}/rules/group/${encodeURIComponent(groupKey)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('删除规则失败');
+  return res.json();
+}
+
+export async function deleteRulesBatch(groupKeys) {
+  const res = await fetch(`${API}/rules/batch-delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupKeys }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || '批量删除失败');
+  return json;
+}

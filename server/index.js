@@ -78,6 +78,10 @@ async function startWorker() {
   const path = (await import('path')).default;
   const { fileURLToPath } = await import('url');
   const { ipcCall } = await import('./ipc.js');
+  const { migrateRulesIfNeeded } = await import('./migrate-rules.js');
+
+  // 启动时迁移内嵌规则到独立存储
+  migrateRulesIfNeeded();
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const app = express();
@@ -90,6 +94,10 @@ async function startWorker() {
   // 客户端管理（内部通过 IPC 代理调用主进程的 MqttManager）
   const clientsRouter = (await import('./routes/clients.js')).default;
   app.use('/api/clients', clientsRouter);
+
+  // 规则管理（独立于客户端存储）
+  const rulesRouter = (await import('./routes/rules.js')).default;
+  app.use('/api/rules', rulesRouter);
 
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime() });

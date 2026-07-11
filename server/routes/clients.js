@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import multer from 'multer';
 import XLSX from 'xlsx';
 import { loadClients, saveClients } from '../store.js';
+import { loadRules } from '../store-rules.js';
 import { mqttManager } from '../mqtt-bridge.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -39,14 +40,7 @@ function normalizeClient(body, existing = null) {
       password: body.broker?.password ?? existing?.broker?.password ?? '',
       clientId: body.broker?.clientId?.trim() || '',
     },
-    rules: (body.rules || existing?.rules || []).map((r) => ({
-      subscribeTopic: r.subscribeTopic?.trim() || '',
-      forwardTopic: r.forwardTopic?.trim() || '',
-      subscribeClientId: r.subscribeClientId || '',
-      forwardClientId: r.forwardClientId || '',
-      groupName: r.groupName || '',
-      conditions: r.conditions || null,
-    })),
+    rules: [],
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -110,11 +104,12 @@ router.post('/batch-delete', async (req, res, next) => {
   }
 });
 
-// ── 导出 Excel ──
+// ── 导出 Excel（含客户端和订阅主题两个工作表） ──
 
 router.get('/export', (req, res, next) => {
   try {
     const clients = loadClients();
+    const rules = loadRules();
 
     // Sheet 1: 客户端列表
     const clientRows = clients.map((c) => ({
@@ -129,22 +124,18 @@ router.get('/export', (req, res, next) => {
     }));
 
     // Sheet 2: 订阅主题
-    const topicRows = [];
-    for (const c of clients) {
-      for (const r of c.rules) {
-        if (!r.subscribeTopic) continue;
-        const subClient = r.subscribeClientId ? clients.find(cc => cc.id === r.subscribeClientId) : null;
-        const fwdClient = r.forwardClientId ? clients.find(cc => cc.id === r.forwardClientId) : null;
-        topicRows.push({
-          '主题名称': r.groupName || '',
-          '订阅主题': r.subscribeTopic,
-          '订阅客户端': subClient ? subClient.name : c.name,
-          '转发主题': r.forwardTopic,
-          '转发客户端': fwdClient ? fwdClient.name : c.name,
-          '规则内容': r.conditions ? JSON.stringify(r.conditions) : '',
-        });
-      }
-    }
+    const clientNameMap = new Map(clients.map((c) => [c.id, c.name]));
+    const topicRows = rules.map((r) => {
+      if (!r.subscribeTopic) return null;
+      return {
+        '主题名称': r.groupName || '',
+        '订阅主题': r.subscribeTopic,
+        '订阅客户端': clientNameMap.get(r.subscribeClientId) || '',
+        '转发主题': r.forwardTopic,
+        '转发客户端': clientNameMap.get(r.forwardClientId) || '',
+        '规则内容': r.conditions ? JSON.stringify(r.conditions) : '',
+      };
+    }).filter(Boolean);
 
     const wb = XLSX.utils.book_new();
 
@@ -307,159 +298,60 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
 
     let added = 0;
     let updated = 0;
-    let topicAdded = 0;
 
-    // 以导入文件为基准，重新构建数据
+    // 确定客户端列表 sheet
+    let sheetName = null;
+    if (sheetNames.includes('MQTT 客户端')) {
+      sheetName = 'MQTT 客户端';
+    } else if (sheetNames.includes('客户端列表')) {
+      sheetName = '客户端列表';
+    } else {
+      sheetName = sheetNames[0];
+    }
+
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: '文件中没有数据' });
+    }
+
     const oldClients = loadClients();
     const oldNameMap = new Map(oldClients.map((c) => [c.name, c]));
     const newClients = [];
+    const addedRules = []; // 暂存规则，后续保存到规则存储
 
-    // 确定是否存在"订阅主题" sheet
-    const hasTopicSheet = sheetNames.includes('订阅主题');
+    for (const row of rows) {
+      const name = String(row['名称'] || '').trim();
+      if (!name) continue;
 
-    // 处理客户端列表 sheet（兼容新旧格式）
-    let clientSheetName = null;
-    if (sheetNames.includes('客户端列表')) {
-      clientSheetName = '客户端列表';
-    } else if (sheetNames.includes('MQTT 客户端')) {
-      clientSheetName = 'MQTT 客户端';
-    } else if (!hasTopicSheet) {
-      // 向后兼容：只有单 sheet 的旧文件，取第一个
-      clientSheetName = sheetNames[0];
-    }
+      const oldMatch = oldNameMap.get(name);
+      const id = oldMatch?.id || uuidv4();
 
-    if (clientSheetName) {
-      const ws = wb.Sheets[clientSheetName];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      const client = {
+        id,
+        name,
+        enabled: String(row['启用'] || '是') === '是',
+        broker: {
+          host: String(row['Broker 地址'] || '127.0.0.1').trim(),
+          port: Number(row['端口']) || 1883,
+          username: String(row['用户名'] || '').trim(),
+          password: String(row['密码'] || ''),
+          clientId: String(row['Client ID'] || '').trim(),
+        },
+        rules: [],
+        createdAt: oldMatch?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        runtime: oldMatch?.runtime || { id, status: 'disconnected', stats: { received: 0, forwarded: 0, errors: 0 }, lastError: null },
+      };
 
-      if (rows.length === 0) {
-        return res.status(400).json({ error: '文件中没有数据' });
+      if (!client.broker.password && oldMatch?.broker.password) {
+        client.broker.password = oldMatch.broker.password;
       }
 
-      for (const row of rows) {
-        const name = String(row['名称'] || '').trim();
-        if (!name) continue;
-
-        // 仅当没有"订阅主题" sheet 时，才从 pipe 分隔的列提取规则（向后兼容）
-        let rules = [];
-        if (!hasTopicSheet) {
-          const subs = String(row['订阅主题'] || '').split('|').map((s) => s.trim()).filter(Boolean);
-          const fwds = String(row['转发主题'] || '').split('|').map((s) => s.trim()).filter(Boolean);
-          const maxLen = Math.max(subs.length, fwds.length, 1);
-          for (let i = 0; i < maxLen; i++) {
-            rules.push({
-              subscribeTopic: subs[i] || '',
-              forwardTopic: fwds[i] || '',
-            });
-          }
-        }
-
-        // 查找旧客户端以保留 ID
-        const oldMatch = oldNameMap.get(name);
-        const id = oldMatch?.id || uuidv4();
-        const createdAt = oldMatch?.createdAt || new Date().toISOString();
-
-        const client = {
-          id,
-          name,
-          enabled: String(row['启用'] || '是') === '是',
-          broker: {
-            host: String(row['Broker 地址'] || '127.0.0.1').trim(),
-            port: Number(row['端口']) || 1883,
-            username: String(row['用户名'] || '').trim(),
-            password: String(row['密码'] || ''),
-            clientId: String(row['Client ID'] || '').trim(),
-          },
-          rules,
-          createdAt,
-          updatedAt: new Date().toISOString(),
-          runtime: oldMatch?.runtime || {
-            id,
-            status: 'disconnected',
-            stats: { received: 0, forwarded: 0, errors: 0 },
-            lastError: null,
-          },
-        };
-
-        // 保留原密码
-        if (!client.broker.password && oldMatch?.broker.password) {
-          client.broker.password = oldMatch.broker.password;
-        }
-
-        newClients.push(client);
-        if (oldMatch) {
-          updated++;
-        } else {
-          added++;
-        }
-      }
-    }
-
-    // 重建 nameMap（用新客户端列表）
-    const nameMap = new Map(newClients.map((c) => [c.name, c]));
-
-    // 处理"订阅主题" sheet — 规则追加到客户端
-    if (hasTopicSheet) {
-      const ws = wb.Sheets['订阅主题'];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-
-      for (const row of rows) {
-        const subClientName = String(row['订阅客户端'] || '').trim();
-        if (!subClientName) continue;
-
-        const subscribeTopic = String(row['订阅主题'] || '').trim();
-        if (!subscribeTopic) continue;
-
-        let client = nameMap.get(subClientName);
-        if (!client) {
-          // 文件中有主题但没有对应客户端，自动创建
-          const id = uuidv4();
-          client = {
-            id,
-            name: subClientName,
-            enabled: true,
-            broker: { host: '127.0.0.1', port: 1883, username: '', password: '', clientId: '' },
-            rules: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            runtime: { id, status: 'disconnected', stats: { received: 0, forwarded: 0, errors: 0 }, lastError: null },
-          };
-          newClients.push(client);
-          nameMap.set(subClientName, client);
-          added++;
-        }
-
-        // 查找转发客户端 ID
-        const fwdClientName = String(row['转发客户端'] || '').trim();
-        let forwardClientId = '';
-        if (fwdClientName) {
-          const fwdClient = nameMap.get(fwdClientName);
-          if (fwdClient) {
-            forwardClientId = fwdClient.id;
-          }
-        }
-
-        // 解析规则内容（JSON）
-        let conditions = null;
-        const conditionsStr = String(row['规则内容'] || '').trim();
-        if (conditionsStr) {
-          try { conditions = JSON.parse(conditionsStr); } catch { /* 非 JSON 忽略 */ }
-        }
-
-        const rule = {
-          subscribeTopic,
-          forwardTopic: String(row['转发主题'] || '').trim(),
-          subscribeClientId: client.id,
-          forwardClientId,
-          groupName: String(row['主题名称'] || '').trim(),
-          conditions,
-        };
-
-        client.rules = client.rules || [];
-        client.rules.push(rule);
-        client.updatedAt = new Date().toISOString();
-        topicAdded++;
-      }
+      newClients.push(client);
+      if (oldMatch) updated++;
+      else added++;
     }
 
     // 断开旧客户端中不再需要的 MQTT 连接
@@ -470,7 +362,6 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       }
     }
 
-    // 保存新数据
     saveClients(newClients);
 
     // 为新客户端建立 MQTT 连接
@@ -483,10 +374,53 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
       }
     }
 
-    let msg = `导入完成：新增 ${added} 个，更新 ${updated} 个`;
-    if (topicAdded > 0) {
-      msg += `，导入 ${topicAdded} 条订阅主题`;
+    // 尝试导入订阅主题 sheet（如果有）
+    let topicAdded = 0;
+    if (sheetNames.includes('订阅主题')) {
+      const { loadRules, saveRules } = await import('../store-rules.js');
+      const existingRules = loadRules();
+      const nameMap = new Map(newClients.map((c) => [c.name, c]));
+
+      const tws = wb.Sheets['订阅主题'];
+      const topicRows = XLSX.utils.sheet_to_json(tws, { defval: '' });
+
+      for (const row of topicRows) {
+        const subClientName = String(row['订阅客户端'] || '').trim();
+        if (!subClientName) continue;
+        const subscribeTopic = String(row['订阅主题'] || '').trim();
+        if (!subscribeTopic) continue;
+
+        const subClient = nameMap.get(subClientName);
+        if (!subClient) continue;
+
+        const fwdClientName = String(row['转发客户端'] || '').trim();
+        let forwardClientId = '';
+        if (fwdClientName) {
+          const fwdClient = nameMap.get(fwdClientName);
+          if (fwdClient) forwardClientId = fwdClient.id;
+        }
+
+        let conditions = null;
+        const condStr = String(row['规则内容'] || '').trim();
+        if (condStr) try { conditions = JSON.parse(condStr); } catch {}
+
+        existingRules.push({
+          id: uuidv4(),
+          subscribeTopic,
+          forwardTopic: String(row['转发主题'] || '').trim(),
+          subscribeClientId: subClient.id,
+          forwardClientId,
+          groupName: String(row['主题名称'] || '').trim(),
+          conditions,
+        });
+        topicAdded++;
+      }
+
+      saveRules(existingRules);
     }
+
+    let msg = `导入完成：新增 ${added} 个，更新 ${updated} 个`;
+    if (topicAdded > 0) msg += `，导入 ${topicAdded} 条订阅主题`;
     res.json({ success: true, added, updated, topicAdded });
   } catch (err) {
     next(err);
