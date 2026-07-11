@@ -366,3 +366,59 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ── 区域容器 ── */
+
+.section-container {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.empty-state-mini {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ── 订阅主题卡片 ── */
+
+.topics-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.topic-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.topic-name {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--primary);
+}
+
+.topic-clients {
+  color: var(--text-muted);
+  font-size: 12px;
+}

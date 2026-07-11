@@ -194,88 +194,117 @@ export default function App() {
 
       <main className="main">
         <div className="page-container">
-          <div className="content-toolbar">
-            <div className="toolbar-left">
-              <button type="button" className="btn-primary" onClick={openCreate}>+ 新建</button>
-              <button type="button" className="btn-secondary" onClick={handleExport}>导出</button>
-              <button type="button" className="btn-secondary" onClick={handleImportClick}>导入</button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                style={{ display: 'none' }}
-                onChange={handleImportFile}
-              />
+          <section className="section-container">
+            <h2 className="section-title">MQTT 客户端列表</h2>
+            <div className="content-toolbar">
+              <div className="toolbar-left">
+                <button type="button" className="btn-primary" onClick={openCreate}>+ 新建</button>
+                <button type="button" className="btn-secondary" onClick={handleExport}>导出</button>
+                <button type="button" className="btn-secondary" onClick={handleImportClick}>导入</button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  style={{ display: 'none' }}
+                  onChange={handleImportFile}
+                />
+              </div>
+              {clients.length > 0 && (
+                <div className="toolbar-actions">
+                  <button type="button" className="btn-secondary" onClick={handleSelectAll}>
+                    {allSelected ? '取消全选' : '全选'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    onClick={handleBatchDelete}
+                    disabled={!someSelected}
+                  >
+                    删除{someSelected ? ` (${selectedIds.size})` : ''}
+                  </button>
+                </div>
+              )}
             </div>
-            {clients.length > 0 && (
-              <div className="toolbar-actions">
-                <button type="button" className="btn-secondary" onClick={handleSelectAll}>
-                  {allSelected ? '取消全选' : '全选'}
-                </button>
-                <button
-                  type="button"
-                  className="btn-danger"
-                  onClick={handleBatchDelete}
-                  disabled={!someSelected}
-                >
-                  删除{someSelected ? ` (${selectedIds.size})` : ''}
-                </button>
+            {loading ? (
+              <div className="empty-state">加载中...</div>
+            ) : clients.length === 0 ? (
+              <div className="empty-state">
+                <p>还没有 MQTT 客户端</p>
+                <button className="btn-primary" onClick={openCreate}>创建第一个客户端</button>
+              </div>
+            ) : (
+              <div className="client-table-wrap">
+                <table className="client-table">
+                  <thead>
+                    <tr>
+                      <th className="col-check">
+                        <input
+                          ref={headerCheckRef}
+                          type="checkbox"
+                          className="row-checkbox"
+                          checked={allSelected}
+                          onChange={handleSelectAll}
+                          aria-label="全选"
+                        />
+                      </th>
+                      <th>序号</th>
+                      <th>名称</th>
+                      <th>IP</th>
+                      <th>端口</th>
+                      <th>Client ID</th>
+                      <th>状态</th>
+                      <th>订阅主题</th>
+                      <th>转发主题</th>
+                      <th>接收</th>
+                      <th>转发</th>
+                      <th>错误</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clients.map((c, i) => (
+                      <ClientListRow
+                        key={c.id}
+                        index={i + 1}
+                        client={c}
+                        selected={selectedIds.has(c.id)}
+                        onSelect={handleSelect}
+                        onEdit={openEdit}
+                        onDelete={handleDelete}
+                        onToggle={handleToggle}
+                      />
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
-          </div>
-          {loading ? (
-            <div className="empty-state">加载中...</div>
-          ) : clients.length === 0 ? (
-            <div className="empty-state">
-              <p>还没有 MQTT 客户端</p>
-              <button className="btn-primary" onClick={openCreate}>创建第一个客户端</button>
+          </section>
+
+          <section className="section-container">
+            <h2 className="section-title">订阅主题</h2>
+            <div className="topics-grid">
+              {clients.length === 0 ? (
+                <div className="empty-state-mini">暂无订阅主题</div>
+              ) : (
+                (() => {
+                  const topicMap = {};
+                  for (const c of clients) {
+                    for (const r of c.rules) {
+                      if (!r.subscribeTopic) continue;
+                      if (!topicMap[r.subscribeTopic]) topicMap[r.subscribeTopic] = [];
+                      topicMap[r.subscribeTopic].push(c.name);
+                    }
+                  }
+                  return Object.entries(topicMap).map(([topic, names]) => (
+                    <div key={topic} className="topic-card">
+                      <code className="topic-name">{topic}</code>
+                      <span className="topic-clients">{names.join('、')}</span>
+                    </div>
+                  ));
+                })()
+              )}
             </div>
-          ) : (
-            <div className="client-table-wrap">
-              <table className="client-table">
-                <thead>
-                  <tr>
-                    <th className="col-check">
-                      <input
-                        ref={headerCheckRef}
-                        type="checkbox"
-                        className="row-checkbox"
-                        checked={allSelected}
-                        onChange={handleSelectAll}
-                        aria-label="全选"
-                      />
-                    </th>
-                    <th>序号</th>
-                    <th>名称</th>
-                    <th>IP</th>
-                    <th>端口</th>
-                    <th>Client ID</th>
-                    <th>状态</th>
-                    <th>订阅主题</th>
-                    <th>转发主题</th>
-                    <th>接收</th>
-                    <th>转发</th>
-                    <th>错误</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clients.map((c, i) => (
-                    <ClientListRow
-                      key={c.id}
-                      index={i + 1}
-                      client={c}
-                      selected={selectedIds.has(c.id)}
-                      onSelect={handleSelect}
-                      onEdit={openEdit}
-                      onDelete={handleDelete}
-                      onToggle={handleToggle}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          </section>
         </div>
       </main>
 
