@@ -195,12 +195,11 @@ export default function App() {
       <main className="main">
         <div className="page-container">
           <section className="section-container">
-            <h2 className="section-title">MQTT 客户端列表</h2>
-            <div className="content-toolbar">
-              <div className="toolbar-left">
-                <button type="button" className="btn-primary" onClick={openCreate}>+ 新建</button>
-                <button type="button" className="btn-secondary" onClick={handleExport}>导出</button>
-                <button type="button" className="btn-secondary" onClick={handleImportClick}>导入</button>
+            <div className="section-header">
+              <h2 className="section-title">MQTT 客户端列表</h2>
+              <div className="section-actions">
+                <button type="button" className="btn-secondary btn-sm" onClick={handleExport}>导出</button>
+                <button type="button" className="btn-secondary btn-sm" onClick={handleImportClick}>导入</button>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -208,6 +207,11 @@ export default function App() {
                   style={{ display: 'none' }}
                   onChange={handleImportFile}
                 />
+              </div>
+            </div>
+            <div className="content-toolbar">
+              <div className="toolbar-left">
+                <button type="button" className="btn-primary" onClick={openCreate}>+ 新建</button>
               </div>
               {clients.length > 0 && (
                 <div className="toolbar-actions">
