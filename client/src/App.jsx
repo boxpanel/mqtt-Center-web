@@ -254,10 +254,7 @@ export default function App() {
             {loading ? (
               <div className="empty-state">加载中...</div>
             ) : clients.length === 0 ? (
-              <div className="empty-state">
-                <p>还没有 MQTT 客户端</p>
-                <button className="btn-primary" onClick={openCreate}>创建第一个客户端</button>
-              </div>
+              <div className="empty-state">暂无客户端</div>
             ) : (
               <div className="client-table-wrap">
                 <table className="client-table">
