@@ -459,6 +459,8 @@ export default function App() {
                             <th>订阅客户端</th>
                             <th>转发主题</th>
                             <th>转发客户端</th>
+                            <th>接收</th>
+                            <th>转发</th>
                             <th>规则</th>
                             <th>操作</th>
                           </tr>
@@ -500,6 +502,20 @@ export default function App() {
                                     const fwdName = rule.forwardClientId ? (clients.find(cc => cc.id === rule.forwardClientId)?.name || client.name) : client.name;
                                     return <div key={idx} className="cell-line">{fwdName}</div>;
                                   })}
+                                </td>
+                                <td>
+                                  {items.map(({ client }, idx) => (
+                                    <div key={idx} className="cell-line" style={{ fontFamily: 'var(--mono)', fontSize: 13 }}>
+                                      {client.runtime?.stats?.received || 0}
+                                    </div>
+                                  ))}
+                                </td>
+                                <td>
+                                  {items.map(({ client }, idx) => (
+                                    <div key={idx} className="cell-line" style={{ fontFamily: 'var(--mono)', fontSize: 13 }}>
+                                      {client.runtime?.stats?.forwarded || 0}
+                                    </div>
+                                  ))}
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
                                   {(() => {
