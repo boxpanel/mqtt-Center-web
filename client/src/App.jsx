@@ -414,6 +414,7 @@ export default function App() {
                             <th>转发客户端</th>
                             <th>接收</th>
                             <th>转发</th>
+                            <th>未转发</th>
                             <th>规则</th>
                             <th>操作</th>
                           </tr>
@@ -469,6 +470,18 @@ export default function App() {
                                       {client.runtime?.stats?.forwarded || 0}
                                     </div>
                                   ))}
+                                </td>
+                                <td>
+                                  {items.map(({ client }, idx) => {
+                                    const received = client.runtime?.stats?.received || 0;
+                                    const forwarded = client.runtime?.stats?.forwarded || 0;
+                                    const notFwd = Math.max(0, received - forwarded);
+                                    return (
+                                      <div key={idx} className="cell-line" style={{ fontFamily: 'var(--mono)', fontSize: 13, color: notFwd > 0 ? '#f59e0b' : undefined }}>
+                                        {notFwd}
+                                      </div>
+                                    );
+                                  })}
                                 </td>
                                 <td style={{ textAlign: 'center' }}>
                                   {(() => {
