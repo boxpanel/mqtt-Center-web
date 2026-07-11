@@ -265,7 +265,7 @@ export default function App() {
         <div className="page-container">
           <div className="header-top">
             <div>
-              <h1>MQTT Center</h1>
+              <h1>MQTT Center <span className="version-badge">v1.0.0</span></h1>
               <p className="subtitle">独立 MQTT 客户端管理与主题转发</p>
             </div>
           </div>

@@ -36,7 +36,7 @@ function MetricCard({ label, percent, detail, icon }) {
   );
 }
 
-function ClientStatCard({ total, connected, disabled }) {
+function ClientStatCard({ total, connected, disabled, notForwarded }) {
   return (
     <div className="metric-card client-stat-card">
       <div className="stat-rows">
@@ -52,6 +52,10 @@ function ClientStatCard({ total, connected, disabled }) {
           <span className="stat-label stat-disabled">已禁用</span>
           <span className="stat-value" style={{ color: 'var(--danger)' }}>{disabled}</span>
         </div>
+        <div className="stat-row">
+          <span className="stat-label">未转发</span>
+          <span className="stat-value" style={{ color: '#f59e0b' }}>{notForwarded}</span>
+        </div>
       </div>
     </div>
   );
@@ -64,6 +68,11 @@ export function SystemDashboard({ clients }) {
   const total = clients?.length || 0;
   const connected = clients?.filter((c) => c.runtime?.status === 'connected').length || 0;
   const disabled = clients?.filter((c) => !c.enabled).length || 0;
+  const notForwarded = clients?.reduce((sum, c) => {
+    const received = c.runtime?.stats?.received || 0;
+    const forwarded = c.runtime?.stats?.forwarded || 0;
+    return sum + Math.max(0, received - forwarded);
+  }, 0) || 0;
 
   useEffect(() => {
     let active = true;
@@ -129,6 +138,7 @@ export function SystemDashboard({ clients }) {
           total={total}
           connected={connected}
           disabled={disabled}
+          notForwarded={notForwarded}
         />
       </div>
     </div>

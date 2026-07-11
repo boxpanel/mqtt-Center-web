@@ -2,7 +2,13 @@
  * 心跳上报模块
  * 向 Hub 定期发送本机状态信息
  */
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import logger from './logger.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8'));
 
 const HEARTBEAT_INTERVAL = 60000; // 60 秒
 
@@ -21,6 +27,7 @@ export function startHeartbeat(hubUrl, mqttManager, loadClients, getSystemMetric
       let connected = 0;
       let disabled = 0;
       let errors = 0;
+      let notForwarded = 0;
       for (const c of clients) {
         if (!c.enabled) {
           disabled++;
@@ -30,6 +37,9 @@ export function startHeartbeat(hubUrl, mqttManager, loadClients, getSystemMetric
           if (s && s.status === 'connected') connected++;
           if ((c.runtime?.stats?.errors || 0) > 0) errors++;
         }
+        const received = c.runtime?.stats?.received || 0;
+        const forwarded = c.runtime?.stats?.forwarded || 0;
+        notForwarded += Math.max(0, received - forwarded);
       }
 
       // 获取系统指标
@@ -39,11 +49,13 @@ export function startHeartbeat(hubUrl, mqttManager, loadClients, getSystemMetric
       const body = {
         host: global.__localIp,
         port: global.__servicePort,
+        version: pkg.version,
         stats: {
           total: clients.length,
           connected,
           disabled,
           errors,
+          notForwarded,
         },
         system,
         clients,
