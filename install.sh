@@ -141,11 +141,11 @@ interactive_ha() {
 
   HA_ENABLED=""
   if [ -t 0 ]; then
-    read -r -p "$(echo -e "${CYAN}  是否配置主备高可用？(y/N): ${NC}")" HA_ENABLED
+    read -r -p "$(echo -e "${CYAN}  是否配置主备用服务器？(y/N): ${NC}")" HA_ENABLED
   fi
 
   if [ "$HA_ENABLED" != "y" ] && [ "$HA_ENABLED" != "Y" ]; then
-    info "跳过高可用配置"
+    info "跳过主备用服务器配置"
     HA_ENABLED="no"
     return
   fi
