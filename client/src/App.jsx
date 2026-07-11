@@ -228,10 +228,12 @@ export default function App() {
       <main className="main">
         <div className="page-container">
           <section className="section-container">
-            <h2 className="section-title">MQTT 客户端列表</h2>
-              <div className="content-toolbar">
+            <div className="section-header">
+              <h2 className="section-title">MQTT 客户端列表</h2>
+              <button type="button" className="btn-primary btn-sm" onClick={openCreate}>+ 新建</button>
+            </div>
+            <div className="content-toolbar">
               <div className="toolbar-left">
-                <button type="button" className="btn-primary" onClick={openCreate}>+ 新建</button>
               </div>
               {clients.length > 0 && (
                 <div className="toolbar-actions">
