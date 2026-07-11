@@ -14,6 +14,7 @@ const CONDITION_TYPES = [
   { value: 'body_regex', label: '消息体正则匹配' },
   { value: 'qos', label: 'QoS 等于' },
   { value: 'json_field', label: 'JSON 字段满足条件' },
+  { value: 'javascript', label: 'JS 语言' },
 ];
 
 const emptyCondition = () => ({ type: 'always', field: '', operator: '==', value: '' });
@@ -235,6 +236,17 @@ export function TopicForm({ clients, editingItems, editingGroupName, editingCond
                     <option value="1">QoS 1</option>
                     <option value="2">QoS 2</option>
                   </select>
+                )}
+
+                {cond.type === 'javascript' && (
+                  <textarea
+                    className="form-input"
+                    value={cond.value}
+                    onChange={(e) => updateCondition(i, { value: e.target.value })}
+                    placeholder={`// 使用 JavaScript 编写转发条件\n// 返回 true 则转发，false 则不转发\n//\n// 可用变量:\n//   topic     - 原始主题\n//   payload   - 消息体(字符串)\n//   json      - 消息体(JSON 对象，失败为 null)\n//   qos       - QoS 等级 (0/1/2)\n//\n// 示例: 温度大于 30 时转发\n// if (!json || !json.temperature) return false;\n// return json.temperature > 30;`}
+                    rows={8}
+                    style={{ width: '100%', fontFamily: 'var(--mono)', fontSize: 12, marginTop: 6, resize: 'vertical' }}
+                  />
                 )}
 
                 <button type="button" className="btn-danger btn-sm" onClick={() => removeCondition(i)} disabled={conditions.length <= 1}>✕</button>

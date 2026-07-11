@@ -180,6 +180,7 @@
 .status-badge {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   font-size: 12px;
   font-weight: 500;
@@ -220,7 +221,7 @@
 .client-table td {
   border: 1px solid var(--border);
   padding: 10px 12px;
-  text-align: left;
+  text-align: center;
   vertical-align: middle;
   white-space: nowrap;
 }

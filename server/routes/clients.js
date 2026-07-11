@@ -116,7 +116,8 @@ router.get('/export', (req, res, next) => {
   try {
     const clients = loadClients();
 
-    const rows = clients.map((c) => ({
+    // Sheet 1: 客户端列表
+    const clientRows = clients.map((c) => ({
       '名称': c.name,
       '启用': c.enabled ? '是' : '否',
       'Broker 地址': c.broker.host,
@@ -124,25 +125,47 @@ router.get('/export', (req, res, next) => {
       '用户名': c.broker.username || '',
       '密码': c.broker.password || '',
       'Client ID': c.broker.clientId || '',
-      '订阅主题': c.rules.map((r) => r.subscribeTopic).join(' | '),
-      '转发主题': c.rules.map((r) => r.forwardTopic).join(' | '),
       '创建时间': c.createdAt,
     }));
 
+    // Sheet 2: 订阅主题
+    const topicRows = [];
+    for (const c of clients) {
+      for (const r of c.rules) {
+        if (!r.subscribeTopic) continue;
+        const subClient = r.subscribeClientId ? clients.find(cc => cc.id === r.subscribeClientId) : null;
+        const fwdClient = r.forwardClientId ? clients.find(cc => cc.id === r.forwardClientId) : null;
+        topicRows.push({
+          '主题名称': r.groupName || '',
+          '订阅主题': r.subscribeTopic,
+          '订阅客户端': subClient ? subClient.name : c.name,
+          '转发主题': r.forwardTopic,
+          '转发客户端': fwdClient ? fwdClient.name : c.name,
+          '规则内容': r.conditions ? JSON.stringify(r.conditions) : '',
+        });
+      }
+    }
+
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
 
-    ws['!cols'] = [
+    const ws1 = XLSX.utils.json_to_sheet(clientRows);
+    ws1['!cols'] = [
       { wch: 16 }, { wch: 8 }, { wch: 18 }, { wch: 8 },
-      { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 30 },
-      { wch: 30 }, { wch: 24 },
+      { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 24 },
     ];
+    XLSX.utils.book_append_sheet(wb, ws1, '客户端列表');
 
-    XLSX.utils.book_append_sheet(wb, ws, 'MQTT 客户端');
+    const ws2 = XLSX.utils.json_to_sheet(topicRows);
+    ws2['!cols'] = [
+      { wch: 16 }, { wch: 30 }, { wch: 16 }, { wch: 30 },
+      { wch: 16 }, { wch: 30 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws2, '订阅主题');
+
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=mqtt-clients-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=mqtt-center-${Date.now()}.xlsx`);
     res.send(buf);
   } catch (err) {
     next(err);
@@ -280,66 +303,191 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     }
 
     const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-
-    if (rows.length === 0) {
-      return res.status(400).json({ error: '文件中没有数据' });
-    }
+    const sheetNames = wb.SheetNames;
 
     let added = 0;
     let updated = 0;
-    const existing = loadClients();
-    const nameMap = new Map(existing.map((c) => [c.name, c]));
+    let topicAdded = 0;
 
-    for (const row of rows) {
-      const name = String(row['名称'] || '').trim();
-      if (!name) continue;
+    // 以导入文件为基准，重新构建数据
+    const oldClients = loadClients();
+    const oldNameMap = new Map(oldClients.map((c) => [c.name, c]));
+    const newClients = [];
 
-      const rules = [];
-      const subs = String(row['订阅主题'] || '').split('|').map((s) => s.trim()).filter(Boolean);
-      const fwds = String(row['转发主题'] || '').split('|').map((s) => s.trim()).filter(Boolean);
-      const maxLen = Math.max(subs.length, fwds.length, 1);
-      for (let i = 0; i < maxLen; i++) {
-        rules.push({
-          subscribeTopic: subs[i] || '',
-          forwardTopic: fwds[i] || '',
-        });
+    // 确定是否存在"订阅主题" sheet
+    const hasTopicSheet = sheetNames.includes('订阅主题');
+
+    // 处理客户端列表 sheet（兼容新旧格式）
+    let clientSheetName = null;
+    if (sheetNames.includes('客户端列表')) {
+      clientSheetName = '客户端列表';
+    } else if (sheetNames.includes('MQTT 客户端')) {
+      clientSheetName = 'MQTT 客户端';
+    } else if (!hasTopicSheet) {
+      // 向后兼容：只有单 sheet 的旧文件，取第一个
+      clientSheetName = sheetNames[0];
+    }
+
+    if (clientSheetName) {
+      const ws = wb.Sheets[clientSheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (rows.length === 0) {
+        return res.status(400).json({ error: '文件中没有数据' });
       }
 
-      const client = {
-        name,
-        enabled: String(row['启用'] || '是') === '是',
-        broker: {
-          host: String(row['Broker 地址'] || '127.0.0.1').trim(),
-          port: Number(row['端口']) || 1883,
-          username: String(row['用户名'] || '').trim(),
-          password: String(row['密码'] || ''),
-          clientId: String(row['Client ID'] || '').trim(),
-        },
-        rules,
-      };
+      for (const row of rows) {
+        const name = String(row['名称'] || '').trim();
+        if (!name) continue;
 
-      const match = nameMap.get(name);
-      if (match) {
-        /* 保留原密码 */
-        if (!client.broker.password && match.broker.password) {
-          client.broker.password = match.broker.password;
+        // 仅当没有"订阅主题" sheet 时，才从 pipe 分隔的列提取规则（向后兼容）
+        let rules = [];
+        if (!hasTopicSheet) {
+          const subs = String(row['订阅主题'] || '').split('|').map((s) => s.trim()).filter(Boolean);
+          const fwds = String(row['转发主题'] || '').split('|').map((s) => s.trim()).filter(Boolean);
+          const maxLen = Math.max(subs.length, fwds.length, 1);
+          for (let i = 0; i < maxLen; i++) {
+            rules.push({
+              subscribeTopic: subs[i] || '',
+              forwardTopic: fwds[i] || '',
+            });
+          }
         }
-        Object.assign(match, client, { id: match.id, createdAt: match.createdAt, updatedAt: new Date().toISOString() });
-        await mqttManager.updateBridge(match);
-        updated++;
-      } else {
-        const newClient = { ...client, id: uuidv4(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-        existing.push(newClient);
-        nameMap.set(name, newClient);
-        await mqttManager.addBridge(newClient);
-        added++;
+
+        // 查找旧客户端以保留 ID
+        const oldMatch = oldNameMap.get(name);
+        const id = oldMatch?.id || uuidv4();
+        const createdAt = oldMatch?.createdAt || new Date().toISOString();
+
+        const client = {
+          id,
+          name,
+          enabled: String(row['启用'] || '是') === '是',
+          broker: {
+            host: String(row['Broker 地址'] || '127.0.0.1').trim(),
+            port: Number(row['端口']) || 1883,
+            username: String(row['用户名'] || '').trim(),
+            password: String(row['密码'] || ''),
+            clientId: String(row['Client ID'] || '').trim(),
+          },
+          rules,
+          createdAt,
+          updatedAt: new Date().toISOString(),
+          runtime: oldMatch?.runtime || {
+            id,
+            status: 'disconnected',
+            stats: { received: 0, forwarded: 0, errors: 0 },
+            lastError: null,
+          },
+        };
+
+        // 保留原密码
+        if (!client.broker.password && oldMatch?.broker.password) {
+          client.broker.password = oldMatch.broker.password;
+        }
+
+        newClients.push(client);
+        if (oldMatch) {
+          updated++;
+        } else {
+          added++;
+        }
       }
     }
 
-    saveClients(existing);
-    res.json({ success: true, added, updated });
+    // 重建 nameMap（用新客户端列表）
+    const nameMap = new Map(newClients.map((c) => [c.name, c]));
+
+    // 处理"订阅主题" sheet — 规则追加到客户端
+    if (hasTopicSheet) {
+      const ws = wb.Sheets['订阅主题'];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      for (const row of rows) {
+        const subClientName = String(row['订阅客户端'] || '').trim();
+        if (!subClientName) continue;
+
+        const subscribeTopic = String(row['订阅主题'] || '').trim();
+        if (!subscribeTopic) continue;
+
+        let client = nameMap.get(subClientName);
+        if (!client) {
+          // 文件中有主题但没有对应客户端，自动创建
+          const id = uuidv4();
+          client = {
+            id,
+            name: subClientName,
+            enabled: true,
+            broker: { host: '127.0.0.1', port: 1883, username: '', password: '', clientId: '' },
+            rules: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            runtime: { id, status: 'disconnected', stats: { received: 0, forwarded: 0, errors: 0 }, lastError: null },
+          };
+          newClients.push(client);
+          nameMap.set(subClientName, client);
+          added++;
+        }
+
+        // 查找转发客户端 ID
+        const fwdClientName = String(row['转发客户端'] || '').trim();
+        let forwardClientId = '';
+        if (fwdClientName) {
+          const fwdClient = nameMap.get(fwdClientName);
+          if (fwdClient) {
+            forwardClientId = fwdClient.id;
+          }
+        }
+
+        // 解析规则内容（JSON）
+        let conditions = null;
+        const conditionsStr = String(row['规则内容'] || '').trim();
+        if (conditionsStr) {
+          try { conditions = JSON.parse(conditionsStr); } catch { /* 非 JSON 忽略 */ }
+        }
+
+        const rule = {
+          subscribeTopic,
+          forwardTopic: String(row['转发主题'] || '').trim(),
+          subscribeClientId: client.id,
+          forwardClientId,
+          groupName: String(row['主题名称'] || '').trim(),
+          conditions,
+        };
+
+        client.rules = client.rules || [];
+        client.rules.push(rule);
+        client.updatedAt = new Date().toISOString();
+        topicAdded++;
+      }
+    }
+
+    // 断开旧客户端中不再需要的 MQTT 连接
+    const newNames = new Set(newClients.map((c) => c.name));
+    for (const old of oldClients) {
+      if (!newNames.has(old.name)) {
+        try { await mqttManager.removeBridge(old.id); } catch { /* 忽略 */ }
+      }
+    }
+
+    // 保存新数据
+    saveClients(newClients);
+
+    // 为新客户端建立 MQTT 连接
+    for (const c of newClients) {
+      const oldMatch = oldNameMap.get(c.name);
+      if (!oldMatch) {
+        try { await mqttManager.addBridge(c); } catch { /* 忽略 */ }
+      } else {
+        try { await mqttManager.updateBridge(c); } catch { /* 忽略 */ }
+      }
+    }
+
+    let msg = `导入完成：新增 ${added} 个，更新 ${updated} 个`;
+    if (topicAdded > 0) {
+      msg += `，导入 ${topicAdded} 条订阅主题`;
+    }
+    res.json({ success: true, added, updated, topicAdded });
   } catch (err) {
     next(err);
   }

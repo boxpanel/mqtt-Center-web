@@ -273,7 +273,11 @@ export default function App() {
     if (!file) return;
     try {
       const result = await importClients(file);
-      showToast(`导入完成：新增 ${result.added} 个，更新 ${result.updated} 个`);
+      let msg = `导入完成：新增 ${result.added} 个，更新 ${result.updated} 个`;
+      if (result.topicAdded > 0) {
+        msg += `，导入 ${result.topicAdded} 条订阅主题`;
+      }
+      showToast(msg);
       load();
     } catch (err) {
       showToast(err.message, true);
