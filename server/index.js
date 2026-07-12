@@ -27,6 +27,7 @@ async function startPrimary() {
   handlers.set('mqtt:addBridge', (config) => mqttManager.addBridge(config));
   handlers.set('mqtt:removeBridge', (id) => mqttManager.removeBridge(id));
   handlers.set('mqtt:updateBridge', (config) => mqttManager.updateBridge(config));
+  handlers.set('mqtt:syncClients', (clients) => mqttManager.syncClients(clients));
   handlers.set('system:getMetrics', () => getSystemMetrics());
 
   const ipc = setupIpcServer(handlers);

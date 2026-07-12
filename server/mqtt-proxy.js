@@ -14,4 +14,5 @@ export const mqttManager = {
   addBridge: proxy('addBridge'),
   removeBridge: proxy('removeBridge'),
   updateBridge: proxy('updateBridge'),
+  syncClients: proxy('syncClients'),
 };
