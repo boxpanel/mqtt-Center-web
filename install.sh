@@ -46,17 +46,45 @@ detect_pkg_manager() {
 install_system_deps() {
   section "安装系统依赖"
 
+  # curl（NodeSource 安装需要）
+  if ! command -v curl &>/dev/null; then
+    info "正在安装 curl..."
+    case $PKG_MANAGER in
+      apt)    apt-get update -qq && apt-get install -y -qq curl ;;
+      yum|dnf) $PKG_MANAGER install -y -q curl ;;
+      apk)    apk add curl ;;
+      pacman) pacman -S --noconfirm curl ;;
+    esac
+  else
+    info "curl ✓"
+  fi
+
   # git
   if ! command -v git &>/dev/null; then
     info "正在安装 git..."
     case $PKG_MANAGER in
-      apt)    apt-get update -qq && apt-get install -y -qq git ;;
+      apt)    apt-get install -y -qq git ;;
       yum|dnf) $PKG_MANAGER install -y -q git ;;
       apk)    apk add git ;;
       pacman) pacman -S --noconfirm git ;;
     esac
   else
     info "git $(git --version | head -1) ✓"
+  fi
+
+  # sshpass（主服务器自动同步配置到备用服务器需要）
+  if [ "$HA_ENABLED" = "yes" ] && [ "$HA_ROLE" = "master" ]; then
+    if ! command -v sshpass &>/dev/null; then
+      info "正在安装 sshpass..."
+      case $PKG_MANAGER in
+        apt)    apt-get install -y -qq sshpass ;;
+        yum|dnf) $PKG_MANAGER install -y -q sshpass ;;
+        apk)    apk add sshpass ;;
+        pacman) pacman -S --noconfirm sshpass ;;
+      esac
+    else
+      info "sshpass ✓"
+    fi
   fi
 }
 
@@ -317,6 +345,35 @@ KEEPCONF
       info "SSH 密钥已生成"
     fi
 
+    # 自动拷贝 SSH 公钥到备用服务器
+    info "正在自动配置到备用服务器 $HA_REMOTE_IP 的 SSH 免密登录..."
+    local ssh_ok=false
+    # 先试一次看是否已配置过
+    ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes -o ConnectTimeout=3 "root@$HA_REMOTE_IP" exit 2>/dev/null && ssh_ok=true
+
+    if [ "$ssh_ok" != "true" ]; then
+      # 未配置，询问备用服务器密码并自动拷贝
+      echo -e "${CYAN}  请输入备用服务器 root 密码（用于配置免密同步）: ${NC}"
+      local root_pwd=""
+      read -rs root_pwd
+      echo ""
+      if [ -n "$root_pwd" ]; then
+        export SSHPASS="$root_pwd"
+        sshpass -e ssh-copy-id -o StrictHostKeyChecking=accept-new "root@$HA_REMOTE_IP" 2>&1 || {
+          warn "SSH 免密配置失败，请在安装完成后手动配置同步"
+          cat ~/.ssh/id_rsa.pub
+          echo -e "  备用服务器执行:  echo '公钥' >> ~/.ssh/authorized_keys"
+        }
+        unset SSHPASS
+      else
+        warn "密码为空，跳过自动配置"
+        cat ~/.ssh/id_rsa.pub
+        echo -e "  备用服务器执行:  echo '公钥' >> ~/.ssh/authorized_keys"
+      fi
+    else
+      info "SSH 免密已配置 ✓"
+    fi
+
     cat > /etc/systemd/system/mqtt-sync.service <<'SYSEOF'
 [Unit]
 Description=MQTT Center 配置同步
@@ -336,7 +393,7 @@ SYSEOF
 #!/bin/sh
 REMOTE_IP=$HA_REMOTE_IP
 while true; do
-  rsync -avz --delete /opt/mqtt-center-web/data/clients.json root@\$REMOTE_IP:/opt/mqtt-center-web/data/ > /dev/null 2>&1
+  rsync -avz --delete /opt/mqtt-center-web/data/ root@\$REMOTE_IP:/opt/mqtt-center-web/data/ > /dev/null 2>&1
   sleep 20
 done
 SYNEOF
