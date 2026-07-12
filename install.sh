@@ -344,11 +344,13 @@ KEEPCONF
     fi
 
     # 自动拷贝 SSH 公钥到备用服务器
+    local ssh_configured=false
     info "正在配置到备用服务器 $HA_REMOTE_IP 的 SSH 免密登录..."
 
     # 先试一次
     if ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes -o ConnectTimeout=3 "root@$HA_REMOTE_IP" exit 2>/dev/null; then
       info "SSH 免密已配置 ✓"
+      ssh_configured=true
     else
       # 未配置，询问备用服务器密码并自动拷贝
       echo -e "${CYAN}  请输入备用服务器 root 密码（留空则手动配置）: ${NC}"
@@ -361,18 +363,19 @@ KEEPCONF
         sshpass -e ssh-copy-id -o StrictHostKeyChecking=accept-new "root@$HA_REMOTE_IP" 2>&1
         if [ $? -eq 0 ]; then
           info "SSH 免密配置成功 ✓"
+          ssh_configured=true
         else
-          warn "SSH 免密配置失败，请手动配置"
+          warn "SSH 免密配置失败"
           cat ~/.ssh/id_rsa.pub
-          echo -e "  备用服务器执行:  echo '公钥' >> ~/.ssh/authorized_keys"
         fi
         unset SSHPASS
       else
-        warn "跳过自动配置，请手动配置 SSH 免密"
+        warn "跳过自动配置"
         cat ~/.ssh/id_rsa.pub
-        echo -e "  备用服务器执行:  echo '公钥' >> ~/.ssh/authorized_keys"
       fi
     fi
+
+    if [ "$ssh_configured" = "true" ]; then
 
     cat > /etc/systemd/system/mqtt-sync.service <<'SYSEOF'
 [Unit]
@@ -402,6 +405,7 @@ SYNEOF
     systemctl daemon-reload
     systemctl enable mqtt-sync
     systemctl start mqtt-sync
+    fi
 
     echo ""
     info "┌─────────────────────────────────────────────┐"
