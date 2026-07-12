@@ -79,7 +79,14 @@ export default function App() {
         );
       }
     });
-    return unsubscribe;
+
+    // 每 30 秒自动刷新数据（备用服务器同步后自动更新）
+    const pollTimer = setInterval(load, 30000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(pollTimer);
+    };
   }, [load]);
 
   const handleSave = async (data) => {
