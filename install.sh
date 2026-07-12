@@ -390,8 +390,19 @@ clone_repo() {
     fi
   else
     info "克隆仓库到 $TARGET_DIR"
-    git clone --depth=1 https://github.com/boxpanel/mqtt-Center-web.git "$TARGET_DIR"
+    if ! git clone --depth=1 https://github.com/boxpanel/mqtt-Center-web.git "$TARGET_DIR"; then
+      error "Git 克隆失败，请检查网络连接和仓库地址"
+      error "你可以手动执行: git clone --depth=1 https://github.com/boxpanel/mqtt-Center-web.git $TARGET_DIR"
+      exit 1
+    fi
     cd "$TARGET_DIR"
+  fi
+
+  # 验证克隆结果
+  if [ ! -f "$TARGET_DIR/package.json" ]; then
+    error "克隆后 package.json 仍然不存在，请手动排查"
+    ls -la "$TARGET_DIR"
+    exit 1
   fi
 }
 
