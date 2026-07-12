@@ -6,6 +6,8 @@ import { loadClients, saveClients } from '../store.js';
 import { loadRules } from '../store-rules.js';
 import { mqttManager } from '../mqtt-bridge.js';
 
+const isStandby = () => process.env.HA_ROLE === 'standby';
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = Router();
@@ -262,44 +264,6 @@ router.delete('/:id', async (req, res, next) => {
     saveClients(clients);
 
     res.json({ success: true });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// ── keepalived 主备切换时触发 ──
-
-router.post('/sync-standby', (req, res) => {
-  const clients = loadClients();
-  mqttManager.syncClients(clients);
-  res.json({ success: true, count: clients.length });
-});
-
-router.post('/reconnect-all', async (req, res, next) => {
-  try {
-    const clients = loadClients();
-    let count = 0;
-    for (const c of clients) {
-      if (c.enabled) {
-        const status = await mqttManager.updateBridge(c);
-        if (status?.status === 'connected') count++;
-      }
-    }
-    res.json({ success: true, connected: count });
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.post('/disconnect-all', async (req, res, next) => {
-  try {
-    const clients = loadClients();
-    let count = 0;
-    for (const c of clients) {
-      await mqttManager.removeBridge(c.id);
-      count++;
-    }
-    res.json({ success: true, disconnected: count });
   } catch (err) {
     next(err);
   }

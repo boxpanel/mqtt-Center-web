@@ -31,15 +31,19 @@ async function startPrimary() {
 
   const ipc = setupIpcServer(handlers);
 
-  // 初始化 MQTT 连接
-  const clients = loadClients();
-  await mqttManager.init(clients);
-  logger.info({ count: clients.length }, '主进程已加载 MQTT 客户端');
+  // 备用服务器跳过 MQTT 连接，只同步数据
+  if (HA_ROLE !== 'standby') {
+    const clients = loadClients();
+    await mqttManager.init(clients);
+    logger.info({ count: clients.length }, '主进程已加载 MQTT 客户端');
 
-  // MQTT 事件广播给所有工作进程（用于 SSE）
-  mqttManager.onEvent((event) => {
-    ipc.broadcast('mqtt:event', event);
-  });
+    // MQTT 事件广播给所有工作进程（用于 SSE）
+    mqttManager.onEvent((event) => {
+      ipc.broadcast('mqtt:event', event);
+    });
+  } else {
+    logger.info('备用服务器模式，跳过 MQTT 连接初始化');
+  }
 
   // 启动 UDP 发现服务 + 心跳上报
   global.__haRole = HA_ROLE;
@@ -124,29 +128,6 @@ async function startWorker() {
       role: global.__haRole || 'standalone',
       version: '1.0.0',
     });
-  });
-
-  // HA 角色切换（由 keepalived notify 脚本调用）
-  app.post('/api/ha/role', async (req, res) => {
-    const { role } = req.body;
-    if (!role || !['master', 'standby'].includes(role)) {
-      return res.status(400).json({ error: '无效的角色' });
-    }
-    global.__haRole = role;
-    const { loadClients } = await import('./store.js');
-    const { mqttManager } = await import('./mqtt-manager.js');
-
-    if (role === 'master') {
-      // 从备用切换为主：重连所有 MQTT
-      const clients = loadClients();
-      for (const c of clients) {
-        try { await mqttManager.addBridge(c); } catch {}
-      }
-    } else {
-      // 从主切换为备用：断开所有 MQTT
-      mqttManager.disconnectAll();
-    }
-    res.json({ success: true, role });
   });
 
   // SSE：收到主进程广播后转发给浏览器
