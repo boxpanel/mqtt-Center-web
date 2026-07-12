@@ -72,19 +72,17 @@ install_system_deps() {
     info "git $(git --version | head -1) ✓"
   fi
 
-  # sshpass（主服务器自动同步配置到备用服务器需要）
-  if [ "$HA_ENABLED" = "yes" ] && [ "$HA_ROLE" = "master" ]; then
-    if ! command -v sshpass &>/dev/null; then
-      info "正在安装 sshpass..."
-      case $PKG_MANAGER in
-        apt)    apt-get install -y -qq sshpass ;;
-        yum|dnf) $PKG_MANAGER install -y -q sshpass ;;
-        apk)    apk add sshpass ;;
-        pacman) pacman -S --noconfirm sshpass ;;
-      esac
-    else
-      info "sshpass ✓"
-    fi
+  # sshpass（自动同步配置到备用服务器需要）
+  if ! command -v sshpass &>/dev/null; then
+    info "正在安装 sshpass..."
+    case $PKG_MANAGER in
+      apt)    apt-get install -y -qq sshpass ;;
+      yum|dnf) $PKG_MANAGER install -y -q sshpass ;;
+      apk)    apk add sshpass ;;
+      pacman) pacman -S --noconfirm sshpass ;;
+    esac
+  else
+    info "sshpass ✓"
   fi
 }
 
