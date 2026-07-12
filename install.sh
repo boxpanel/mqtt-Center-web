@@ -367,6 +367,8 @@ while true; do
   if [ -n "\$RULES" ]; then
     echo "{\"rules\":\$RULES}" > "\$DATA_DIR/rules.json"
   fi
+  # 通知本机服务同步客户端 bridge 实例
+  curl -sf -X POST "http://127.0.0.1:\$PORT/api/clients/sync-standby" 2>/dev/null
   sleep 20
 done
 SYNEOF

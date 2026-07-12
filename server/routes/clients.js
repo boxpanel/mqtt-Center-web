@@ -58,12 +58,6 @@ function maskPassword(client) {
 router.get('/', async (req, res, next) => {
   try {
     const clients = loadClients();
-
-    // 备用服务器：确保所有客户端有 bridge 实例（standby 状态）
-    if (global.__haRole === 'standby') {
-      mqttManager.syncClients(clients);
-    }
-
     const statuses = await mqttManager.getAllStatus();
     const statusMap = Object.fromEntries((statuses || []).map((s) => [s.id, s]));
 
@@ -274,6 +268,12 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 // ── keepalived 主备切换时触发 ──
+
+router.post('/sync-standby', (req, res) => {
+  const clients = loadClients();
+  mqttManager.syncClients(clients);
+  res.json({ success: true, count: clients.length });
+});
 
 router.post('/reconnect-all', async (req, res, next) => {
   try {
