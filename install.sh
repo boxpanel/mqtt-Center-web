@@ -286,13 +286,13 @@ CHKEOF
 #!/bin/bash
 TYPE=$1
 STATE=$2
-PORT=$(grep -oP 'PORT=\K\d+' /etc/systemd/system/mqtt-center-web.service 2>/dev/null || echo 80)
+LOCAL_PORT=$(grep -oP 'PORT=\K\d+' /etc/systemd/system/mqtt-center-web.service 2>/dev/null || echo 80)
 case "$STATE" in
   MASTER)
-    curl -sf -X POST "http://127.0.0.1:$PORT/api/clients/reconnect-all" > /dev/null 2>&1
+    curl -sf -X POST "http://127.0.0.1:$LOCAL_PORT/api/clients/reconnect-all" > /dev/null 2>&1
     ;;
   BACKUP)
-    curl -sf -X POST "http://127.0.0.1:$PORT/api/clients/disconnect-all" > /dev/null 2>&1
+    curl -sf -X POST "http://127.0.0.1:$LOCAL_PORT/api/clients/disconnect-all" > /dev/null 2>&1
     ;;
 esac
 NOTIFYEOF
@@ -361,6 +361,7 @@ SYSEOF
 #!/bin/bash
 # 从主服务器 HTTP API 同步数据（备用服务器定时拉取）
 MASTER_URL="http://$HA_MASTER_IP:$PORT"
+LOCAL_PORT=$PORT
 DATA_DIR="/opt/mqtt-center-web/data"
 
 while true; do
@@ -375,7 +376,7 @@ while true; do
     echo "{\"rules\":\$RULES}" > "\$DATA_DIR/rules.json"
   fi
   # 通知本机服务同步客户端 bridge 实例
-  curl -sf -X POST "http://127.0.0.1:\$PORT/api/clients/sync-standby" 2>/dev/null
+  curl -sf -X POST "http://127.0.0.1:\$LOCAL_PORT/api/clients/sync-standby" 2>/dev/null
   sleep 20
 done
 SYNEOF
