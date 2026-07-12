@@ -380,16 +380,26 @@ clone_repo() {
 build_project() {
   section "安装依赖 & 构建"
 
+  cd "$TARGET_DIR" || { error "项目目录 $TARGET_DIR 不存在，请检查克隆是否成功"; exit 1; }
+
   info "安装服务端依赖..."
-  npm install 2>&1 | tail -1
+  if ! command -v npm &>/dev/null; then
+    error "npm 未安装，请先执行: apt-get install -y nodejs"
+    exit 1
+  fi
+  npm install 2>&1 | tail -5
 
   info "安装前端依赖..."
+  if [ ! -d client ]; then
+    error "client 目录不存在，仓库可能未完整克隆"
+    exit 1
+  fi
   cd client
-  npm install 2>&1 | tail -1
+  npm install 2>&1 | tail -5
   cd ..
 
   info "构建前端..."
-  npm run build 2>&1 | tail -3
+  npm run build 2>&1 | tail -5
 
   mkdir -p data
   info "构建完成 ✓"
