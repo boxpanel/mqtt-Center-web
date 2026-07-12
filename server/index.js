@@ -11,7 +11,6 @@ const PORT = Number(process.env.PORT) || 8088;
 const WORKERS = Number(process.env.WORKERS) || os.cpus().length;
 const VIP = process.env.VIP || '';
 const HA_ROLE = process.env.HA_ROLE || 'standalone';
-const MQTT_ENABLED = process.env.MQTT_ENABLED !== 'false';
 
 // ───────────────────────
 // 主进程（管理 MQTT 连接 + 系统指标）
@@ -28,23 +27,21 @@ async function startPrimary() {
   handlers.set('mqtt:addBridge', (config) => mqttManager.addBridge(config));
   handlers.set('mqtt:removeBridge', (id) => mqttManager.removeBridge(id));
   handlers.set('mqtt:updateBridge', (config) => mqttManager.updateBridge(config));
+  handlers.set('mqtt:enableAll', () => mqttManager.enableAll());
+  handlers.set('mqtt:disableAll', () => mqttManager.disableAll());
   handlers.set('system:getMetrics', () => getSystemMetrics());
 
   const ipc = setupIpcServer(handlers);
 
-  // 备用服务器跳过 MQTT 连接，只同步数据
-  if (MQTT_ENABLED) {
-    const clients = loadClients();
-    await mqttManager.init(clients);
-    logger.info({ count: clients.length }, '主进程已加载 MQTT 客户端');
+  // 初始化 MQTT 连接
+  const clients = loadClients();
+  await mqttManager.init(clients);
+  logger.info({ count: clients.length }, '主进程已加载 MQTT 客户端');
 
-    // MQTT 事件广播给所有工作进程（用于 SSE）
-    mqttManager.onEvent((event) => {
-      ipc.broadcast('mqtt:event', event);
-    });
-  } else {
-    logger.info('MQTT 已禁用，跳过连接初始化');
-  }
+  // MQTT 事件广播给所有工作进程（用于 SSE）
+  mqttManager.onEvent((event) => {
+    ipc.broadcast('mqtt:event', event);
+  });
 
   // 启动 UDP 发现服务 + 心跳上报
   global.__haRole = HA_ROLE;
@@ -129,6 +126,17 @@ async function startWorker() {
       role: global.__haRole || 'standalone',
       version: '1.0.0',
     });
+  });
+
+  // 控制本机所有 MQTT 连接启用/禁用（供 Keepalived notify 脚本调用）
+  app.post('/api/server/local-mqtt', express.json(), async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      const count = enabled ? await ipcCall('mqtt:enableAll') : await ipcCall('mqtt:disableAll');
+      res.json({ success: true, enabled, affected: count });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // SSE：收到主进程广播后转发给浏览器

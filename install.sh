@@ -286,6 +286,19 @@ CHKEOF
   local STATE=$([ "$HA_ROLE" = "master" ] && echo "MASTER" || echo "BACKUP")
   local IFACE=$(ip route get "$HA_REMOTE_IP" | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -1)
 
+  # notify 脚本（Keepalived 状态切换时控制本机 MQTT）
+  cat > /opt/mqtt-center-web/ha-notify.sh <<'NOTIFYEOF'
+#!/bin/bash
+# Keepalived notify: $1 = group, $2 = type, $3 = state (MASTER/BACKUP/FAULT)
+STATE=$3
+ENABLED=false
+[ "$STATE" = "MASTER" ] && ENABLED=true
+curl -sf -X POST "http://127.0.0.1:$(grep -oP 'PORT=\K\d+' /etc/systemd/system/mqtt-center-web.service 2>/dev/null || echo 80)/api/server/local-mqtt" \
+  -H "Content-Type: application/json" \
+  -d "{\"enabled\": $ENABLED}" 2>/dev/null
+NOTIFYEOF
+  chmod +x /opt/mqtt-center-web/ha-notify.sh
+
   cat > /etc/keepalived/keepalived.conf <<KEEPCONF
 vrrp_instance VI_1 {
     state $STATE
@@ -303,6 +316,9 @@ vrrp_instance VI_1 {
     track_script {
         chk_mqtt
     }
+    notify_master "/opt/mqtt-center-web/ha-notify.sh"
+    notify_backup "/opt/mqtt-center-web/ha-notify.sh"
+    notify_fault "/opt/mqtt-center-web/ha-notify.sh"
 }
 KEEPCONF
 
@@ -481,7 +497,6 @@ RestartSec=5
 Environment=NODE_ENV=production
 Environment=VIP=$HA_VIRTUAL_IP
 Environment=HA_ROLE=$HA_ROLE
-Environment=MQTT_ENABLED=$([ "$HA_ROLE" = "standby" ] && echo false || echo true)
 
 [Install]
 WantedBy=multi-user.target

@@ -362,13 +362,6 @@ class MqttManager {
 
     this.bridges.set(config.id, bridge);
 
-    // 备用服务器：只注册不连接，等待故障切换
-    if (global.__haRole === 'standby') {
-      bridge.status = 'standby';
-      this.emitEvent({ type: 'status', data: bridge.getStatus() });
-      return bridge.getStatus();
-    }
-
     if (config.enabled) {
       bridge.connect();
     } else {
@@ -415,20 +408,40 @@ class MqttManager {
     return bridge ? bridge.getStatus() : null;
   }
 
-  disconnectAll() {
+  enableAll() {
+    let count = 0;
     this.bridges.forEach((bridge) => {
-      try {
-        bridge.destroy();
-      } catch (err) {
-        logger.error({ err, id: bridge.config?.id }, '断开桥接失败');
+      if (bridge.status !== 'connected' && bridge.status !== 'connecting') {
+        bridge.connect();
+        count++;
       }
     });
-    this.bridges.clear();
+    logger.info({ count }, '已启用所有 MQTT 连接');
+    return count;
+  }
+
+  disableAll() {
+    let count = 0;
+    this.bridges.forEach((bridge) => {
+      if (bridge.status === 'connected' || bridge.status === 'connecting') {
+        bridge.disconnect();
+        count++;
+      }
+    });
+    logger.info({ count }, '已禁用所有 MQTT 连接');
+    return count;
   }
 
   shutdown() {
     this.stopHealthCheck();
-    this.disconnectAll();
+    this.bridges.forEach((bridge) => {
+      try {
+        bridge.destroy();
+      } catch (err) {
+        logger.error({ err, client: bridge.getId() }, '关闭客户端异常');
+      }
+    });
+    this.bridges.clear();
   }
 }
 
