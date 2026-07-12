@@ -196,18 +196,21 @@ interactive_ha() {
     [ -z "$HA_STANDBY_IP" ] && warn "IP 地址不能为空，请重新输入"
   done
 
-  # 虚拟 IP（带冲突检测）
+  # 虚拟 IP（带冲突检测，仅警告不阻止）
   HA_VIRTUAL_IP=""
   while [ -z "$HA_VIRTUAL_IP" ]; do
     interactive_read "$(echo -e "${CYAN}  请输入虚拟 IP 地址 (建议用 ${detected_ip%.*}.200): ${NC}")" HA_VIRTUAL_IP
     if [ -n "$HA_VIRTUAL_IP" ]; then
-      # 检测 IP 是否被占用
       if ping -c 1 -W 1 "$HA_VIRTUAL_IP" >/dev/null 2>&1; then
-        warn "检测到 ${HA_VIRTUAL_IP} 已被其他设备占用，请更换"
-        HA_VIRTUAL_IP=""
+        warn "${HA_VIRTUAL_IP} 当前在线（可能已被主服务器绑定），确认继续？(Y/n)"
+        local vip_confirm=""
+        read -r vip_confirm
+        if [ "$vip_confirm" = "n" ] || [ "$vip_confirm" = "N" ]; then
+          HA_VIRTUAL_IP=""
+        fi
       fi
     fi
-    [ -z "$HA_VIRTUAL_IP" ] && warn "IP 地址不能为空或已被占用，请重新输入"
+    [ -z "$HA_VIRTUAL_IP" ] && warn "IP 地址不能为空，请重新输入"
   done
 
   # 根据角色设置本机和对方 IP
