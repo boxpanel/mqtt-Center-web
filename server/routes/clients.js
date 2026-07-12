@@ -267,6 +267,38 @@ router.delete('/:id', async (req, res, next) => {
   }
 });
 
+// ── keepalived 主备切换时触发 ──
+
+router.post('/reconnect-all', async (req, res, next) => {
+  try {
+    const clients = loadClients();
+    let count = 0;
+    for (const c of clients) {
+      if (c.enabled) {
+        const status = await mqttManager.updateBridge(c);
+        if (status?.status === 'connected') count++;
+      }
+    }
+    res.json({ success: true, connected: count });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/disconnect-all', async (req, res, next) => {
+  try {
+    const clients = loadClients();
+    let count = 0;
+    for (const c of clients) {
+      await mqttManager.removeBridge(c.id);
+      count++;
+    }
+    res.json({ success: true, disconnected: count });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── 切换启用/禁用 ──
 
 router.post('/:id/toggle', async (req, res, next) => {

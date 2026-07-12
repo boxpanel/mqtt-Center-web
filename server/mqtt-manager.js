@@ -363,7 +363,12 @@ class MqttManager {
     this.bridges.set(config.id, bridge);
 
     if (config.enabled) {
-      bridge.connect();
+      // 备用服务器跳过 MQTT 连接，避免与主服务器冲突
+      if (global.__haRole === 'standby') {
+        bridge.status = 'standby';
+      } else {
+        bridge.connect();
+      }
     } else {
       bridge.status = 'disabled';
     }

@@ -281,6 +281,23 @@ exit $?
 CHKEOF
   chmod +x /etc/keepalived/chk_mqtt.sh
 
+  # 主备切换通知脚本
+  cat > /etc/keepalived/notify_mqtt.sh <<'NOTIFYEOF'
+#!/bin/bash
+TYPE=$1
+STATE=$2
+PORT=$(grep -oP 'PORT=\K\d+' /etc/systemd/system/mqtt-center-web.service 2>/dev/null || echo 80)
+case "$STATE" in
+  MASTER)
+    curl -sf -X POST "http://127.0.0.1:$PORT/api/clients/reconnect-all" > /dev/null 2>&1
+    ;;
+  BACKUP)
+    curl -sf -X POST "http://127.0.0.1:$PORT/api/clients/disconnect-all" > /dev/null 2>&1
+    ;;
+esac
+NOTIFYEOF
+  chmod +x /etc/keepalived/notify_mqtt.sh
+
   # keepalived 配置
   local PRIORITY=$([ "$HA_ROLE" = "master" ] && echo 150 || echo 100)
   local STATE=$([ "$HA_ROLE" = "master" ] && echo "MASTER" || echo "BACKUP")
@@ -303,6 +320,7 @@ vrrp_instance VI_1 {
     track_script {
         chk_mqtt
     }
+    notify /etc/keepalived/notify_mqtt.sh
 }
 KEEPCONF
 
