@@ -394,6 +394,12 @@ build_project() {
 
   cd "$TARGET_DIR" || { error "项目目录 $TARGET_DIR 不存在，请检查克隆是否成功"; exit 1; }
 
+  # 检查 package.json 是否存在
+  if [ ! -f package.json ]; then
+    error "package.json 不存在，仓库克隆可能不完整"
+    exit 1
+  fi
+
   info "安装服务端依赖..."
   if ! command -v npm &>/dev/null; then
     error "npm 未安装，请先执行: apt-get install -y nodejs"
