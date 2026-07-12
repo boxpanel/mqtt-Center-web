@@ -10,6 +10,7 @@ import { startDiscovery } from './discovery.js';
 const PORT = Number(process.env.PORT) || 8088;
 const WORKERS = Number(process.env.WORKERS) || os.cpus().length;
 const VIP = process.env.VIP || '';
+const HA_ROLE = process.env.HA_ROLE || 'standalone';
 
 // ───────────────────────
 // 主进程（管理 MQTT 连接 + 系统指标）
@@ -41,6 +42,7 @@ async function startPrimary() {
   });
 
   // 启动 UDP 发现服务 + 心跳上报
+  global.__haRole = HA_ROLE;
   startDiscovery(mqttManager, loadClients, PORT, getSystemMetrics, VIP);
 
   // 启动工作进程
@@ -84,6 +86,7 @@ async function startWorker() {
   // 启动时迁移内嵌规则到独立存储
   migrateRulesIfNeeded();
   if (VIP) global.__vip = VIP;
+  global.__haRole = HA_ROLE;
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const app = express();
@@ -118,6 +121,7 @@ async function startWorker() {
   app.get('/api/config', (req, res) => {
     res.json({
       vip: global.__vip || null,
+      role: global.__haRole || 'standalone',
       version: '1.0.0',
     });
   });

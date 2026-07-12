@@ -49,6 +49,7 @@ export function startHeartbeat(hubUrl, mqttManager, loadClients, getSystemMetric
       const body = {
         host: global.__localIp,
         port: global.__servicePort,
+        role: global.__haRole || 'standalone',
         vip: global.__vip || null,
         version: pkg.version,
         stats: {

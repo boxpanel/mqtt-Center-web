@@ -432,6 +432,7 @@ Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
 Environment=VIP=$HA_VIRTUAL_IP
+Environment=HA_ROLE=$HA_ROLE
 
 [Install]
 WantedBy=multi-user.target

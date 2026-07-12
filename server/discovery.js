@@ -78,6 +78,7 @@ export function startDiscovery(mqttManager, loadClients, servicePort, getSystemM
           hostname: os.hostname(),
           ip: localIp,
           port: servicePort,
+          role: global.__haRole || 'standalone',
           stats: { total: clients.length, connected, disabled },
           vip: global.__vip || null,
           ips: getAllIps(),
