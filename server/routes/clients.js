@@ -58,6 +58,12 @@ function maskPassword(client) {
 router.get('/', async (req, res, next) => {
   try {
     const clients = loadClients();
+
+    // 备用服务器：确保所有客户端有 bridge 实例（standby 状态）
+    if (global.__haRole === 'standby') {
+      mqttManager.syncClients(clients);
+    }
+
     const statuses = await mqttManager.getAllStatus();
     const statusMap = Object.fromEntries((statuses || []).map((s) => [s.id, s]));
 

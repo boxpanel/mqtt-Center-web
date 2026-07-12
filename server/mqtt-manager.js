@@ -408,6 +408,15 @@ class MqttManager {
     return [...this.bridges.values()].map((b) => b.getStatus());
   }
 
+  // 确保所有客户端在备用服务器上有 bridge 实例（不连接 MQTT）
+  syncClients(clients) {
+    for (const c of clients) {
+      if (!this.bridges.has(c.id)) {
+        this.addBridge(c);
+      }
+    }
+  }
+
   getStatus(id) {
     const bridge = this.bridges.get(id);
     return bridge ? bridge.getStatus() : null;
