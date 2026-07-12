@@ -295,7 +295,7 @@ vrrp_instance VI_1 {
     advert_int 1
     authentication {
         auth_type PASS
-        auth_pass mqttsync
+        auth_pass mqtt-ha-secret
     }
     virtual_ipaddress {
         $HA_VIRTUAL_IP/24
@@ -303,22 +303,8 @@ vrrp_instance VI_1 {
     track_script {
         chk_mqtt
     }
-    notify_master "/opt/mqtt-center-web/ha-notify.sh master"
-    notify_backup "/opt/mqtt-center-web/ha-notify.sh standby"
-    notify_fault "/opt/mqtt-center-web/ha-notify.sh standby"
 }
 KEEPCONF
-
-  # 生成角色切换通知脚本
-  cat > /opt/mqtt-center-web/ha-notify.sh <<NOTIFYEOF
-#!/bin/bash
-# Keepalived 状态切换时通知 MQTT Center 服务
-ROLE=\$1
-curl -sf -X POST -H "Content-Type: application/json" \\
-  -d "{\\"role\\":\\"\$ROLE\\"}" \\
-  http://127.0.0.1:$PORT/api/ha/role 2>/dev/null
-NOTIFYEOF
-  chmod +x /opt/mqtt-center-web/ha-notify.sh
 
   systemctl enable keepalived
   systemctl restart keepalived
@@ -495,6 +481,7 @@ RestartSec=5
 Environment=NODE_ENV=production
 Environment=VIP=$HA_VIRTUAL_IP
 Environment=HA_ROLE=$HA_ROLE
+Environment=MQTT_ENABLED=$([ "$HA_ROLE" = "standby" ] && echo false || echo true)
 
 [Install]
 WantedBy=multi-user.target

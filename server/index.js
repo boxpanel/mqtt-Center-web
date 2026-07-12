@@ -11,6 +11,7 @@ const PORT = Number(process.env.PORT) || 8088;
 const WORKERS = Number(process.env.WORKERS) || os.cpus().length;
 const VIP = process.env.VIP || '';
 const HA_ROLE = process.env.HA_ROLE || 'standalone';
+const MQTT_ENABLED = process.env.MQTT_ENABLED !== 'false';
 
 // ───────────────────────
 // 主进程（管理 MQTT 连接 + 系统指标）
@@ -32,7 +33,7 @@ async function startPrimary() {
   const ipc = setupIpcServer(handlers);
 
   // 备用服务器跳过 MQTT 连接，只同步数据
-  if (HA_ROLE !== 'standby') {
+  if (MQTT_ENABLED) {
     const clients = loadClients();
     await mqttManager.init(clients);
     logger.info({ count: clients.length }, '主进程已加载 MQTT 客户端');
@@ -42,7 +43,7 @@ async function startPrimary() {
       ipc.broadcast('mqtt:event', event);
     });
   } else {
-    logger.info('备用服务器模式，跳过 MQTT 连接初始化');
+    logger.info('MQTT 已禁用，跳过连接初始化');
   }
 
   // 启动 UDP 发现服务 + 心跳上报

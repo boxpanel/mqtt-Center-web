@@ -6,8 +6,6 @@ import { loadClients, saveClients } from '../store.js';
 import { loadRules } from '../store-rules.js';
 import { mqttManager } from '../mqtt-bridge.js';
 
-const isStandby = () => process.env.HA_ROLE === 'standby';
-
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = Router();

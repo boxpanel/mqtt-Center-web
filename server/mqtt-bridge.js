@@ -19,6 +19,6 @@ const noopManager = {
   shutdown: () => {},
 };
 
-const isStandby = () => process.env.HA_ROLE === 'standby';
+const isMqttDisabled = () => process.env.MQTT_ENABLED === 'false';
 
-export const mqttManager = isStandby() ? noopManager : (cluster.isPrimary ? realMqtt : proxyMqtt);
+export const mqttManager = isMqttDisabled() ? noopManager : (cluster.isPrimary ? realMqtt : proxyMqtt);
