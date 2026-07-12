@@ -328,6 +328,13 @@ KEEPCONF
   systemctl restart keepalived
   info "keepalived 已配置并启动"
 
+  # 重启同步脚本（备用服务器）
+  killall ha-sync.sh 2>/dev/null
+  if [ "$HA_ROLE" = "standby" ]; then
+    nohup bash /opt/mqtt-center-web/ha-sync.sh > /dev/null 2>&1 &
+    info "数据同步脚本已启动"
+  fi
+
   # 配置同步（仅主服务器需要）
   if [ "$HA_ROLE" = "master" ]; then
     if [ ! -f ~/.ssh/id_rsa ]; then
