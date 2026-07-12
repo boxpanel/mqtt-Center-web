@@ -180,7 +180,11 @@ interactive_ha() {
 
   # 主服务器 IP
   HA_MASTER_IP=""
-  local default_ip="${detected_ip:-}"
+  if [ "$HA_ROLE" = "master" ]; then
+    local default_ip="${detected_ip:-}"
+  else
+    local default_ip=""
+  fi
   while [ -z "$HA_MASTER_IP" ]; do
     interactive_read "$(echo -e "${CYAN}  请输入主服务器 IP 地址${default_ip:+ [${default_ip}]}: ${NC}")" HA_MASTER_IP
     if [ -z "$HA_MASTER_IP" ] && [ -n "$default_ip" ]; then
@@ -191,8 +195,16 @@ interactive_ha() {
 
   # 备用服务器 IP
   HA_STANDBY_IP=""
+  if [ "$HA_ROLE" = "standby" ]; then
+    local default_ip="${detected_ip:-}"
+  else
+    local default_ip=""
+  fi
   while [ -z "$HA_STANDBY_IP" ]; do
-    interactive_read "$(echo -e "${CYAN}  请输入备用服务器 IP 地址: ${NC}")" HA_STANDBY_IP
+    interactive_read "$(echo -e "${CYAN}  请输入备用服务器 IP 地址${default_ip:+ [${default_ip}]}: ${NC}")" HA_STANDBY_IP
+    if [ -z "$HA_STANDBY_IP" ] && [ -n "$default_ip" ]; then
+      HA_STANDBY_IP="$default_ip"
+    fi
     [ -z "$HA_STANDBY_IP" ] && warn "IP 地址不能为空，请重新输入"
   done
 
