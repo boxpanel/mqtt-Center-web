@@ -1,6 +1,7 @@
 import mqtt from 'mqtt';
 import { EventEmitter } from 'events';
 import logger from './logger.js';
+import { loadRules } from './store-rules.js';
 
 const HEALTH_CHECK_INTERVAL = 30000;
 const STARTUP_STAGGER_MS = 150;
@@ -348,6 +349,13 @@ class MqttManager {
       this.removeBridge(config.id);
     }
 
+    // 从独立规则存储中加载属于该客户端的规则
+    const allRules = loadRules();
+    config = {
+      ...config,
+      rules: allRules.filter((r) => r.subscribeClientId === config.id || r.forwardClientId === config.id),
+    };
+
     const bridge = new MqttBridge(config);
     bridge.on('status', (status) => this.emitEvent({ type: 'status', data: status }));
     bridge.on('error', (err) => this.emitEvent({ type: 'error', data: err }));
@@ -373,6 +381,12 @@ class MqttManager {
 
   updateBridge(config) {
     try {
+      // 从独立规则存储中加载属于该客户端的规则
+      const allRules = loadRules();
+      config = {
+        ...config,
+        rules: allRules.filter((r) => r.subscribeClientId === config.id || r.forwardClientId === config.id),
+      };
       const bridge = this.bridges.get(config.id);
       if (bridge) {
         bridge.updateConfig(config);
