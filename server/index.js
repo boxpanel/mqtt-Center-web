@@ -32,6 +32,9 @@ async function startPrimary() {
 
   const ipc = setupIpcServer(handlers);
 
+  // 必须在 init MQTT 连接前设置角色
+  global.__haRole = HA_ROLE;
+
   // 初始化 MQTT 连接
   const clients = loadClients();
   await mqttManager.init(clients);
@@ -43,7 +46,6 @@ async function startPrimary() {
   });
 
   // 启动 UDP 发现服务 + 心跳上报
-  global.__haRole = HA_ROLE;
   startDiscovery(mqttManager, loadClients, PORT, getSystemMetrics, VIP);
 
   // 启动工作进程
