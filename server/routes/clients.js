@@ -61,6 +61,11 @@ router.get('/', async (req, res, next) => {
     const statuses = await mqttManager.getAllStatus();
     const statusMap = Object.fromEntries((statuses || []).map((s) => [s.id, s]));
 
+    // 内部同步模式：返回完整数据（含密码）
+    if (req.query.sync === 'true') {
+      return res.json(clients);
+    }
+
     const result = clients.map((c) => ({
       ...c,
       broker: { ...c.broker, password: c.broker.password ? '******' : '' },

@@ -340,7 +340,7 @@ DATA_DIR="/opt/mqtt-center-web/data"
 
 while true; do
   # 同步客户端数据（API返回数组，需包装为文件格式）
-  CLIENTS=\$(curl -sf "\$MASTER_URL/api/clients" 2>/dev/null)
+  CLIENTS=\$(curl -sf "\$MASTER_URL/api/clients?sync=true" 2>/dev/null)
   if [ -n "\$CLIENTS" ]; then
     echo "{\"clients\":\$CLIENTS}" > "\$DATA_DIR/clients.json"
   fi
