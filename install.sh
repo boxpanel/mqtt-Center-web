@@ -532,9 +532,13 @@ install_nodejs
 detect_arch
 interactive_config
 interactive_ha
+echo "DEBUG: 开始 clone_repo" >&2
 clone_repo
+echo "DEBUG: 开始 build_project" >&2
 build_project
+echo "DEBUG: 开始 setup_service" >&2
 setup_service
+echo "DEBUG: 开始 setup_ha" >&2
 setup_ha
 show_ha_result
 show_result
