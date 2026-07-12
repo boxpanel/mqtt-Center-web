@@ -9,6 +9,7 @@ import { startDiscovery } from './discovery.js';
 // ───────────────────────
 const PORT = Number(process.env.PORT) || 8088;
 const WORKERS = Number(process.env.WORKERS) || os.cpus().length;
+const VIP = process.env.VIP || '';
 
 // ───────────────────────
 // 主进程（管理 MQTT 连接 + 系统指标）
@@ -40,7 +41,7 @@ async function startPrimary() {
   });
 
   // 启动 UDP 发现服务 + 心跳上报
-  startDiscovery(mqttManager, loadClients, PORT, getSystemMetrics);
+  startDiscovery(mqttManager, loadClients, PORT, getSystemMetrics, VIP);
 
   // 启动工作进程
   for (let i = 0; i < WORKERS; i++) {

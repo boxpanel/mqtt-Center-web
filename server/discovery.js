@@ -27,13 +27,14 @@ function getLocalIp() {
  * - 响应 Hub 的广播发现
  * - 监听 Hub 的注册通知，启动心跳上报
  */
-export function startDiscovery(mqttManager, loadClients, servicePort, getSystemMetrics) {
+export function startDiscovery(mqttManager, loadClients, servicePort, getSystemMetrics, vip) {
   const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
   // 保存本机信息供心跳模块使用
   const localIp = getLocalIp();
   global.__localIp = localIp;
   global.__servicePort = servicePort;
+  if (vip) global.__vip = vip;
 
   socket.on('message', (msg, rinfo) => {
     try {
@@ -63,6 +64,7 @@ export function startDiscovery(mqttManager, loadClients, servicePort, getSystemM
           ip: localIp,
           port: servicePort,
           stats: { total: clients.length, connected, disabled },
+          vip: global.__vip || null,
         });
 
         socket.send(reply, rinfo.port, rinfo.address, (err) => {

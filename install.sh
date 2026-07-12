@@ -175,10 +175,17 @@ interactive_ha() {
     HA_ROLE="master"
   fi
 
+  # 自动检测本机 LAN IP
+  local detected_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+
   # 主服务器 IP
   HA_MASTER_IP=""
+  local default_ip="${detected_ip:-}"
   while [ -z "$HA_MASTER_IP" ]; do
-    interactive_read "$(echo -e "${CYAN}  请输入主服务器 IP 地址: ${NC}")" HA_MASTER_IP
+    interactive_read "$(echo -e "${CYAN}  请输入主服务器 IP 地址${default_ip:+ [${default_ip}]}: ${NC}")" HA_MASTER_IP
+    if [ -z "$HA_MASTER_IP" ] && [ -n "$default_ip" ]; then
+      HA_MASTER_IP="$default_ip"
+    fi
     [ -z "$HA_MASTER_IP" ] && warn "IP 地址不能为空，请重新输入"
   done
 
@@ -189,11 +196,18 @@ interactive_ha() {
     [ -z "$HA_STANDBY_IP" ] && warn "IP 地址不能为空，请重新输入"
   done
 
-  # 虚拟 IP
+  # 虚拟 IP（带冲突检测）
   HA_VIRTUAL_IP=""
   while [ -z "$HA_VIRTUAL_IP" ]; do
-    interactive_read "$(echo -e "${CYAN}  请输入虚拟 IP 地址: ${NC}")" HA_VIRTUAL_IP
-    [ -z "$HA_VIRTUAL_IP" ] && warn "IP 地址不能为空，请重新输入"
+    interactive_read "$(echo -e "${CYAN}  请输入虚拟 IP 地址 (建议用 ${detected_ip%.*}.200): ${NC}")" HA_VIRTUAL_IP
+    if [ -n "$HA_VIRTUAL_IP" ]; then
+      # 检测 IP 是否被占用
+      if ping -c 1 -W 1 "$HA_VIRTUAL_IP" >/dev/null 2>&1; then
+        warn "检测到 ${HA_VIRTUAL_IP} 已被其他设备占用，请更换"
+        HA_VIRTUAL_IP=""
+      fi
+    fi
+    [ -z "$HA_VIRTUAL_IP" ] && warn "IP 地址不能为空或已被占用，请重新输入"
   done
 
   # 根据角色设置本机和对方 IP
@@ -386,6 +400,7 @@ ExecStart=/usr/bin/env WORKERS=$RECOMMENDED_WORKERS PORT=$PORT node server/index
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
+Environment=VIP=$HA_VIRTUAL_IP
 
 [Install]
 WantedBy=multi-user.target
