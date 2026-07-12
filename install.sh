@@ -378,9 +378,16 @@ clone_repo() {
   TARGET_DIR="/opt/mqtt-center-web"
 
   if [ -d "$TARGET_DIR" ]; then
-    info "目录已存在，更新代码..."
-    cd "$TARGET_DIR"
-    git pull
+    if [ -f "$TARGET_DIR/package.json" ]; then
+      info "目录已存在，更新代码..."
+      cd "$TARGET_DIR"
+      git pull
+    else
+      warn "目录不完整，重新克隆..."
+      rm -rf "$TARGET_DIR"
+      git clone --depth=1 https://github.com/boxpanel/mqtt-Center-web.git "$TARGET_DIR"
+      cd "$TARGET_DIR"
+    fi
   else
     info "克隆仓库到 $TARGET_DIR"
     git clone --depth=1 https://github.com/boxpanel/mqtt-Center-web.git "$TARGET_DIR"
