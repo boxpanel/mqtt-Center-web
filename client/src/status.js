@@ -6,6 +6,5 @@ export const STATUS_MAP = {
   error: { label: '异常', color: 'var(--danger)' },
   disconnected: { label: '已断开', color: 'var(--text-muted)' },
   disabled: { label: '已禁用', color: 'var(--disabled)' },
-  standby: { label: '已禁用', color: 'var(--disabled)' },
   unknown: { label: '未知', color: 'var(--text-muted)' },
 };

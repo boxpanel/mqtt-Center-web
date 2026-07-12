@@ -408,30 +408,6 @@ class MqttManager {
     return bridge ? bridge.getStatus() : null;
   }
 
-  enableAll() {
-    let count = 0;
-    this.bridges.forEach((bridge) => {
-      if (bridge.status !== 'connected' && bridge.status !== 'connecting') {
-        bridge.connect();
-        count++;
-      }
-    });
-    logger.info({ count }, '已启用所有 MQTT 连接');
-    return count;
-  }
-
-  disableAll() {
-    let count = 0;
-    this.bridges.forEach((bridge) => {
-      if (bridge.status === 'connected' || bridge.status === 'connecting') {
-        bridge.disconnect();
-        count++;
-      }
-    });
-    logger.info({ count }, '已禁用所有 MQTT 连接');
-    return count;
-  }
-
   shutdown() {
     this.stopHealthCheck();
     this.bridges.forEach((bridge) => {
