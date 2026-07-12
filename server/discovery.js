@@ -22,6 +22,21 @@ function getLocalIp() {
   return '127.0.0.1';
 }
 
+function getAllIps() {
+  const ips = [];
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    const iface = interfaces[name];
+    if (!iface) continue;
+    for (const addr of iface) {
+      if (addr.family === 'IPv4' && !addr.internal && !ips.includes(addr.address)) {
+        ips.push(addr.address);
+      }
+    }
+  }
+  return ips;
+}
+
 /**
  * 启动 UDP 发现服务
  * - 响应 Hub 的广播发现
@@ -65,6 +80,7 @@ export function startDiscovery(mqttManager, loadClients, servicePort, getSystemM
           port: servicePort,
           stats: { total: clients.length, connected, disabled },
           vip: global.__vip || null,
+          ips: getAllIps(),
         });
 
         socket.send(reply, rinfo.port, rinfo.address, (err) => {
