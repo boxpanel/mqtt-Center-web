@@ -9,6 +9,7 @@ import {
   subscribeEvents,
   exportClients,
   importClients,
+  fetchServerConfig,
   fetchRules,
   saveRulesBatch,
   deleteRulesGroup,
@@ -23,6 +24,7 @@ import './App.css';
 export default function App() {
   const [clients, setClients] = useState([]);
   const [rules, setRules] = useState([]);
+  const [serverRole, setServerRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [editingClient, setEditingClient] = useState(null);
@@ -45,9 +47,10 @@ export default function App() {
 
   const load = useCallback(async () => {
     try {
-      const [data, ruleData] = await Promise.all([fetchClients(), fetchRules()]);
+      const [data, ruleData, config] = await Promise.all([fetchClients(), fetchRules(), fetchServerConfig()]);
       setClients(data);
       setRules(ruleData);
+      setServerRole(config?.role || '');
       setSelectedIds((prev) => {
         const next = new Set();
         const idSet = new Set(data.map((c) => c.id));
@@ -265,7 +268,10 @@ export default function App() {
         <div className="page-container">
           <div className="header-top">
             <div>
-              <h1>MQTT Center <span className="version-badge">v1.0.0</span></h1>
+              <h1>MQTT Center <span className="version-badge">v1.0.0</span>
+                {serverRole === 'master' && <span className="role-badge role-master">主服务器</span>}
+                {serverRole === 'standby' && <span className="role-badge role-standby">备用服务器</span>}
+              </h1>
               <p className="subtitle">独立 MQTT 客户端管理与主题转发</p>
             </div>
           </div>

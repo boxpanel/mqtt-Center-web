@@ -83,6 +83,12 @@ export async function importClients(file) {
   return json;
 }
 
+export async function fetchServerConfig() {
+  const res = await fetch(`${API}/config`);
+  if (!res.ok) throw new Error('获取配置失败');
+  return res.json();
+}
+
 // ── 规则管理 API ──
 
 export async function fetchRules() {
