@@ -198,6 +198,24 @@ interactive_ha() {
 
   # 虚拟 IP（带冲突检测，仅警告不阻止）
   HA_VIRTUAL_IP=""
+
+  # 备用服务器尝试从主服务器自动获取 VIP
+  if [ "$HA_ROLE" = "standby" ] && [ -n "$HA_MASTER_IP" ]; then
+    info "尝试从主服务器 $HA_MASTER_IP 获取虚拟 IP..."
+    local fetched_vip=$(curl -s --max-time 3 "http://$HA_MASTER_IP:$PORT/api/config" 2>/dev/null | grep -o '"vip":"[^"]*"' | cut -d'"' -f4)
+    if [ -n "$fetched_vip" ]; then
+      info "自动获取到虚拟 IP: $fetched_vip"
+      echo -e "${CYAN}  是否使用该虚拟 IP？(Y/n): ${NC}"
+      local vip_auto=""
+      read -r vip_auto
+      if [ "$vip_auto" != "n" ] && [ "$vip_auto" != "N" ]; then
+        HA_VIRTUAL_IP="$fetched_vip"
+      fi
+    else
+      warn "无法自动获取，请手动输入"
+    fi
+  fi
+
   while [ -z "$HA_VIRTUAL_IP" ]; do
     interactive_read "$(echo -e "${CYAN}  请输入虚拟 IP 地址 (建议用 ${detected_ip%.*}.200): ${NC}")" HA_VIRTUAL_IP
     if [ -n "$HA_VIRTUAL_IP" ]; then

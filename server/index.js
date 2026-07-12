@@ -83,6 +83,7 @@ async function startWorker() {
 
   // 启动时迁移内嵌规则到独立存储
   migrateRulesIfNeeded();
+  if (VIP) global.__vip = VIP;
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const app = express();
@@ -111,6 +112,14 @@ async function startWorker() {
     } catch (err) {
       res.status(500).json({ error: '获取系统资源失败', message: err.message });
     }
+  });
+
+  // 返回本机配置信息（供安装脚本获取 VIP 等）
+  app.get('/api/config', (req, res) => {
+    res.json({
+      vip: global.__vip || null,
+      version: '1.0.0',
+    });
   });
 
   // SSE：收到主进程广播后转发给浏览器
