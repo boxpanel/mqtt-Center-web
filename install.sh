@@ -353,9 +353,8 @@ KEEPCONF
       # 未配置，询问备用服务器密码并自动拷贝
       echo -e "${CYAN}  请输入备用服务器 root 密码（留空则手动配置）: ${NC}"
       local root_pwd=""
-      stty -echo 2>/dev/null
-      read -r root_pwd
-      stty echo 2>/dev/null
+      # 直接从终端读取，避免 stdin 缓冲问题
+      read -r root_pwd </dev/tty || read -r root_pwd
       echo ""
       if [ -n "$root_pwd" ]; then
         export SSHPASS="$root_pwd"
