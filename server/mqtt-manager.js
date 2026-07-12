@@ -362,13 +362,15 @@ class MqttManager {
 
     this.bridges.set(config.id, bridge);
 
+    // 备用服务器：只注册不连接，等待故障切换
+    if (global.__haRole === 'standby') {
+      bridge.status = 'standby';
+      this.emitEvent({ type: 'status', data: bridge.getStatus() });
+      return bridge.getStatus();
+    }
+
     if (config.enabled) {
-      // 备用服务器跳过 MQTT 连接，避免与主服务器冲突
-      if (global.__haRole === 'standby') {
-        bridge.status = 'standby';
-      } else {
-        bridge.connect();
-      }
+      bridge.connect();
     } else {
       bridge.status = 'disabled';
     }
@@ -406,15 +408,6 @@ class MqttManager {
 
   getAllStatus() {
     return [...this.bridges.values()].map((b) => b.getStatus());
-  }
-
-  // 确保所有客户端在备用服务器上有 bridge 实例（不连接 MQTT）
-  syncClients(clients) {
-    for (const c of clients) {
-      if (!this.bridges.has(c.id)) {
-        this.addBridge(c);
-      }
-    }
   }
 
   getStatus(id) {
