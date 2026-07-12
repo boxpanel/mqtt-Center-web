@@ -415,16 +415,20 @@ class MqttManager {
     return bridge ? bridge.getStatus() : null;
   }
 
-  shutdown() {
-    this.stopHealthCheck();
+  disconnectAll() {
     this.bridges.forEach((bridge) => {
       try {
         bridge.destroy();
       } catch (err) {
-        logger.error({ err, client: bridge.getId() }, '关闭客户端异常');
+        logger.error({ err, id: bridge.config?.id }, '断开桥接失败');
       }
     });
     this.bridges.clear();
+  }
+
+  shutdown() {
+    this.stopHealthCheck();
+    this.disconnectAll();
   }
 }
 

@@ -281,23 +281,6 @@ exit $?
 CHKEOF
   chmod +x /etc/keepalived/chk_mqtt.sh
 
-  # 主备切换通知脚本
-  cat > /etc/keepalived/notify_mqtt.sh <<'NOTIFYEOF'
-#!/bin/bash
-TYPE=$1
-STATE=$2
-LOCAL_PORT=$(grep -oP 'PORT=\K\d+' /etc/systemd/system/mqtt-center-web.service 2>/dev/null || echo 80)
-case "$STATE" in
-  MASTER)
-    curl -sf -X POST "http://127.0.0.1:$LOCAL_PORT/api/clients/reconnect-all" > /dev/null 2>&1
-    ;;
-  BACKUP)
-    curl -sf -X POST "http://127.0.0.1:$LOCAL_PORT/api/clients/disconnect-all" > /dev/null 2>&1
-    ;;
-esac
-NOTIFYEOF
-  chmod +x /etc/keepalived/notify_mqtt.sh
-
   # keepalived 配置
   local PRIORITY=$([ "$HA_ROLE" = "master" ] && echo 150 || echo 100)
   local STATE=$([ "$HA_ROLE" = "master" ] && echo "MASTER" || echo "BACKUP")
@@ -312,7 +295,7 @@ vrrp_instance VI_1 {
     advert_int 1
     authentication {
         auth_type PASS
-        auth_pass mqtt-ha-secret
+        auth_pass mqttsync
     }
     virtual_ipaddress {
         $HA_VIRTUAL_IP/24
@@ -320,20 +303,26 @@ vrrp_instance VI_1 {
     track_script {
         chk_mqtt
     }
-    notify /etc/keepalived/notify_mqtt.sh
+    notify_master "/opt/mqtt-center-web/ha-notify.sh master"
+    notify_backup "/opt/mqtt-center-web/ha-notify.sh standby"
+    notify_fault "/opt/mqtt-center-web/ha-notify.sh standby"
 }
 KEEPCONF
+
+  # 生成角色切换通知脚本
+  cat > /opt/mqtt-center-web/ha-notify.sh <<NOTIFYEOF
+#!/bin/bash
+# Keepalived 状态切换时通知 MQTT Center 服务
+ROLE=\$1
+curl -sf -X POST -H "Content-Type: application/json" \\
+  -d "{\\"role\\":\\"\$ROLE\\"}" \\
+  http://127.0.0.1:$PORT/api/ha/role 2>/dev/null
+NOTIFYEOF
+  chmod +x /opt/mqtt-center-web/ha-notify.sh
 
   systemctl enable keepalived
   systemctl restart keepalived
   info "keepalived 已配置并启动"
-
-  # 重启同步脚本（备用服务器）
-  killall ha-sync.sh 2>/dev/null
-  if [ "$HA_ROLE" = "standby" ]; then
-    nohup bash /opt/mqtt-center-web/ha-sync.sh > /dev/null 2>&1 &
-    info "数据同步脚本已启动"
-  fi
 
   # 配置同步（仅主服务器需要）
   if [ "$HA_ROLE" = "master" ]; then
@@ -361,7 +350,6 @@ SYSEOF
 #!/bin/bash
 # 从主服务器 HTTP API 同步数据（备用服务器定时拉取）
 MASTER_URL="http://$HA_MASTER_IP:$PORT"
-LOCAL_PORT=$PORT
 DATA_DIR="/opt/mqtt-center-web/data"
 
 while true; do
@@ -375,8 +363,6 @@ while true; do
   if [ -n "\$RULES" ]; then
     echo "{\"rules\":\$RULES}" > "\$DATA_DIR/rules.json"
   fi
-  # 通知本机服务同步客户端 bridge 实例
-  curl -sf -X POST "http://127.0.0.1:\$LOCAL_PORT/api/clients/sync-standby" 2>/dev/null
   sleep 20
 done
 SYNEOF
