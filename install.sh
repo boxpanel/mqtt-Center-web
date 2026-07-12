@@ -339,10 +339,16 @@ MASTER_URL="http://$HA_MASTER_IP:$PORT"
 DATA_DIR="/opt/mqtt-center-web/data"
 
 while true; do
-  # 同步客户端数据
-  curl -sf "\$MASTER_URL/api/clients" -o "\$DATA_DIR/clients.json" 2>/dev/null
+  # 同步客户端数据（API返回数组，需包装为文件格式）
+  CLIENTS=\$(curl -sf "\$MASTER_URL/api/clients" 2>/dev/null)
+  if [ -n "\$CLIENTS" ]; then
+    echo "{\"clients\":\$CLIENTS}" > "\$DATA_DIR/clients.json"
+  fi
   # 同步规则数据
-  curl -sf "\$MASTER_URL/api/rules" -o "\$DATA_DIR/rules.json" 2>/dev/null
+  RULES=\$(curl -sf "\$MASTER_URL/api/rules" 2>/dev/null)
+  if [ -n "\$RULES" ]; then
+    echo "{\"rules\":\$RULES}" > "\$DATA_DIR/rules.json"
+  fi
   sleep 20
 done
 SYNEOF
