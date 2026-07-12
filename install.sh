@@ -344,32 +344,33 @@ KEEPCONF
     fi
 
     # 自动拷贝 SSH 公钥到备用服务器
-    info "正在自动配置到备用服务器 $HA_REMOTE_IP 的 SSH 免密登录..."
-    local ssh_ok=false
-    # 先试一次看是否已配置过
-    ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes -o ConnectTimeout=3 "root@$HA_REMOTE_IP" exit 2>/dev/null && ssh_ok=true
+    info "正在配置到备用服务器 $HA_REMOTE_IP 的 SSH 免密登录..."
 
-    if [ "$ssh_ok" != "true" ]; then
+    # 先试一次
+    if ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes -o ConnectTimeout=3 "root@$HA_REMOTE_IP" exit 2>/dev/null; then
+      info "SSH 免密已配置 ✓"
+    else
       # 未配置，询问备用服务器密码并自动拷贝
-      echo -e "${CYAN}  请输入备用服务器 root 密码（用于配置免密同步）: ${NC}"
+      echo -e "${CYAN}  请输入备用服务器 root 密码（留空则手动配置）: ${NC}"
       local root_pwd=""
       read -rs root_pwd
       echo ""
       if [ -n "$root_pwd" ]; then
         export SSHPASS="$root_pwd"
-        sshpass -e ssh-copy-id -o StrictHostKeyChecking=accept-new "root@$HA_REMOTE_IP" 2>&1 || {
-          warn "SSH 免密配置失败，请在安装完成后手动配置同步"
+        sshpass -e ssh-copy-id -o StrictHostKeyChecking=accept-new "root@$HA_REMOTE_IP" 2>&1
+        if [ $? -eq 0 ]; then
+          info "SSH 免密配置成功 ✓"
+        else
+          warn "SSH 免密配置失败，请手动配置"
           cat ~/.ssh/id_rsa.pub
           echo -e "  备用服务器执行:  echo '公钥' >> ~/.ssh/authorized_keys"
-        }
+        fi
         unset SSHPASS
       else
-        warn "密码为空，跳过自动配置"
+        warn "跳过自动配置，请手动配置 SSH 免密"
         cat ~/.ssh/id_rsa.pub
         echo -e "  备用服务器执行:  echo '公钥' >> ~/.ssh/authorized_keys"
       fi
-    else
-      info "SSH 免密已配置 ✓"
     fi
 
     cat > /etc/systemd/system/mqtt-sync.service <<'SYSEOF'
