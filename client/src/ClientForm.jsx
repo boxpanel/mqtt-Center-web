@@ -115,7 +115,7 @@ export function ClientForm({ client, onSave, onCancel }) {
             </div>
             <div className="form-group">
               <label>密码（可选）</label>
-              <input className="form-input" type="password" value={form.broker.password} onChange={(e) => update('broker.password', e.target.value)} placeholder={client ? '留空保持不变' : ''} />
+              <input className="form-input" type="text" value={form.broker.password} onChange={(e) => update('broker.password', e.target.value)} placeholder={client ? '留空保持不变' : ''} />
             </div>
           </div>
           <div className="form-group">
