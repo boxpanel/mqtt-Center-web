@@ -12,9 +12,9 @@ export function ClientForm({ client, onSave, onCancel }) {
   const [form, setForm] = useState(() => {
     if (client) {
       return {
-        name: client.name,
+        ...client,
         enabled: client.enabled,
-        broker: { ...client.broker, password: '' },
+        broker: { ...client.broker },
       };
     }
     return emptyForm();
