@@ -330,28 +330,8 @@ STANDBYEOF
   systemctl restart keepalived
   info "keepalived 已配置并启动"
 
-  # 配置同步（仅主服务器需要）
-  if [ "$HA_ROLE" = "master" ]; then
-    if [ ! -f ~/.ssh/id_rsa ]; then
-      ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N "" -q
-      info "SSH 密钥已生成"
-    fi
-
-    cat > /etc/systemd/system/mqtt-sync.service <<'SYSEOF'
-[Unit]
-Description=MQTT Center 配置同步
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/bin/sh /opt/mqtt-center-web/ha-sync.sh
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-SYSEOF
-
+  # 配置同步（备用服务器从主服务器 HTTP 拉取）
+  if [ "$HA_ROLE" = "standby" ]; then
     cat > /opt/mqtt-center-web/ha-sync.sh <<SYNEOF
 #!/bin/bash
 # 从主服务器 HTTP API 同步数据（备用服务器定时拉取）
@@ -375,20 +355,24 @@ done
 SYNEOF
     chmod +x /opt/mqtt-center-web/ha-sync.sh
 
+    cat > /etc/systemd/system/mqtt-sync.service <<'SYSEOF'
+[Unit]
+Description=MQTT Center 配置同步
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /opt/mqtt-center-web/ha-sync.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+SYSEOF
     systemctl daemon-reload
     systemctl enable mqtt-sync
     systemctl start mqtt-sync
-
-    echo ""
-    info "┌─────────────────────────────────────────────┐"
-    info "│ 请在备用服务器上添加 SSH 公钥:               │"
-    info "│                                             │"
-    cat ~/.ssh/id_rsa.pub | sed 's/^/│  /'
-    info "│                                             │"
-    info "│ 备用服务器执行:                              │"
-    info "│  echo '公钥' >> ~/.ssh/authorized_keys       │"
-    info "└─────────────────────────────────────────────┘"
-    echo ""
+    info "配置同步服务已启动（每20秒从主服务器拉取数据）"
   fi
 }
 
