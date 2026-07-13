@@ -21,9 +21,14 @@ export function loadClients() {
   try {
     const raw = fs.readFileSync(DATA_FILE, 'utf-8');
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed.clients) ? parsed.clients : [];
+    const clients = Array.isArray(parsed.clients) ? parsed.clients : [];
+    if (clients.length === 0 && raw.trim().length > 20) {
+      logger.warn({ size: raw.length, preview: raw.slice(0, 100) }, 'loadClients 返回空但文件非空');
+    }
+    return clients;
   } catch (err) {
     logger.error({ err }, '读取客户端数据失败，返回空列表');
+    ensureDataFile();
     return [];
   }
 }

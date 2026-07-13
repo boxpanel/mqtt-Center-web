@@ -47,10 +47,10 @@ export default function App() {
 
   const load = useCallback(async () => {
     try {
-      const [data, ruleData, config] = await Promise.all([fetchClients(), fetchRules(), fetchServerConfig()]);
-      setClients(data);
-      setRules(ruleData);
-      setServerRole(config?.role || '');
+      const [data, ruleData, config] = await Promise.all([fetchClients(), fetchRules(), fetchServerConfig().catch(() => ({}))]);
+      if (data) setClients(data);
+      if (ruleData) setRules(ruleData);
+      if (config?.role) setServerRole(config.role);
       setSelectedIds((prev) => {
         const next = new Set();
         const idSet = new Set(data.map((c) => c.id));
