@@ -255,8 +255,16 @@ export default function App() {
     setFormOpen(true);
   };
 
-  const openEdit = (client) => {
-    setEditingClient(client);
+  const openEdit = async (client) => {
+    // 获取明文密码用于编辑
+    try {
+      const res = await fetch(`/api/clients?sync=true`);
+      const all = await res.json();
+      const real = all.find(c => c.id === client.id);
+      setEditingClient(real || client);
+    } catch {
+      setEditingClient(client);
+    }
     setFormOpen(true);
   };
 
