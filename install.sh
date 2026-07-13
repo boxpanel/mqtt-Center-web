@@ -361,12 +361,13 @@ DATA_DIR="/opt/mqtt-center-web/data"
 while true; do
   # 同步客户端数据（API返回数组，需包装为文件格式）
   CLIENTS=\$(curl -sf "\$MASTER_URL/api/clients?sync=true" 2>/dev/null)
-  if [ -n "\$CLIENTS" ]; then
+  # 验证是有效的 JSON 数组再写入
+  if echo "\$CLIENTS" | grep -q '^\[' 2>/dev/null; then
     echo "{\"clients\":\$CLIENTS}" > "\$DATA_DIR/clients.json.tmp" && mv "\$DATA_DIR/clients.json.tmp" "\$DATA_DIR/clients.json"
   fi
   # 同步规则数据
   RULES=\$(curl -sf "\$MASTER_URL/api/rules" 2>/dev/null)
-  if [ -n "\$RULES" ]; then
+  if echo "\$RULES" | grep -q '^\[' 2>/dev/null; then
     echo "{\"rules\":\$RULES}" > "\$DATA_DIR/rules.json.tmp" && mv "\$DATA_DIR/rules.json.tmp" "\$DATA_DIR/rules.json"
   fi
   sleep 20
