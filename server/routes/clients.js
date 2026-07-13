@@ -214,6 +214,19 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+// ── 获取单个客户端（含明文密码，供编辑使用）──
+
+router.get('/:id/full', async (req, res, next) => {
+  try {
+    const clients = loadClients();
+    const client = clients.find((c) => c.id === req.params.id);
+    if (!client) return res.status(404).json({ error: '客户端不存在' });
+    res.json(client);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── 更新客户端 ──
 
 router.put('/:id', async (req, res, next) => {

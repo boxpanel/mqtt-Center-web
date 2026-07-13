@@ -258,10 +258,13 @@ export default function App() {
   const openEdit = async (client) => {
     // 获取明文密码用于编辑
     try {
-      const res = await fetch(`/api/clients?sync=true`);
-      const all = await res.json();
-      const real = all.find(c => c.id === client.id);
-      setEditingClient(real || client);
+      const res = await fetch(`/api/clients/${client.id}/full`);
+      if (res.ok) {
+        const real = await res.json();
+        setEditingClient(real);
+      } else {
+        setEditingClient(client);
+      }
     } catch {
       setEditingClient(client);
     }
